@@ -67,10 +67,10 @@ GPLv2
 
 main package include a tool for testing, similar to netcat (nc).
 
-build with `go build`
+build with `go build -o suft-nc`
 
 ```
-./udp [-l :port] [-r target:port] [-b 10] [-fr] < [send_file] > [recv_file]
+./suft-nc [-l :port] [-r target:port] [-b 10] [-fr] < [send_file] > [recv_file]
 
 -l:  local bind address
 -r:  remote address
@@ -83,4 +83,4 @@ build with `go build`
 Notes:
 
 - the target will be connected can't be located behind NAT (or should use port mapping)
-- use improper window size may waste huge bandwidth and may be suspected of being used for the purpose of attack.
+- use improper bandwidth(-b) may waste huge bandwidth and may be suspected of being used for the purpose of attack.
