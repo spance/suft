@@ -1,5 +1,7 @@
 # What is the name then?
 
+[![Join the chat at https://gitter.im/spance/suft](https://badges.gitter.im/spance/suft.svg)](https://gitter.im/spance/suft?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Small-scale UDP Fast Transmission Protocol, SUFT ?
 
 The SUFT is a application layer transmission protocol based on UDP and implemented in Golang. It provides some of the same service features: stream-oriented like TCP, low latency and esures reliable, ordered transport of stream with plain congestion control.
