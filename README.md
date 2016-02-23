@@ -73,7 +73,7 @@ build with `go build -o suft-nc`
 ./suft-nc [-l addr:port] [-r addr:port] [-s] [-b 10] [-fr] < [send_file] > [recv_file]
 
 -l:  local bind address, e.g. localhost:9090 or :8080
--r:  remote address, e.g. 8.8.8.8:9090 or examples.com:8080
+-r:  remote address (for client), e.g. 8.8.8.8:9090 or examples.com:8080
 -b:  max bandwidth of sending in mbps
 -s:  for server
 -fr: enable fast retransmission (useful for lossy link)
@@ -96,8 +96,8 @@ local# ./suft-nc -l :1234 -r remote:9090 > recv_file
 ```
 
 ```
-// char room
-remote# ./suft-nc -l :9090
+// simple chat room
+remote# ./suft-nc -l :9090 -s
 local# ./suft-nc -l :1234 -r remote:9090
 ```
 
