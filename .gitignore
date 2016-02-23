@@ -1,0 +1,9 @@
+*.exe
+*.bat
+*.sh
+big.*
+raproxy
+*.pprof
+*.log
+*.tmp
+*.dmp
