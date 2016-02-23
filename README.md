@@ -70,14 +70,34 @@ main package include a tool for testing, similar to netcat (nc).
 build with `go build -o suft-nc`
 
 ```
-./suft-nc [-l :port] [-r target:port] [-b 10] [-fr] < [send_file] > [recv_file]
+./suft-nc [-l addr:port] [-r addr:port] [-b 10] [-fr] < [send_file] > [recv_file]
 
--l:  local bind address
--r:  remote address
+-l:  local bind address, e.g. localhost:9090 or :8080
+-r:  remote address, e.g. 8.8.8.8:9090 or examples.com:8080
 -b:  max bandwidth of sending in mbps
--fr: enable fast retransmission (useful for a link with losing packets)
+-fr: enable fast retransmission (useful for lossy link)
 -sr: don't shrink window when a lot of packets were lost
 -debug: 0,1,2 for debugging
+```
+
+examples:
+
+```
+// send my_file to remote in 10mbps
+remote# ./suft-nc -l :9090 > recv_file
+local# ./suft-nc -l :1234 -r remote:9090 -b 10 -fr < my_file
+```
+
+```
+// recv my_file from remote in 20mbps
+remote# ./suft-nc -l :9090 -b 20 -fr < my_file
+local# ./suft-nc -l :1234 -r remote:9090 > recv_file
+```
+
+```
+// char room
+remote# ./suft-nc -l :9090
+local# ./suft-nc -l :1234 -r remote:9090
 ```
 
 Notes:
