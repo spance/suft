@@ -95,7 +95,8 @@ function suft_p.dissector (buf, pinfo, root)
 	end
 end
 
--- register a chained dissector for port 8002
+
 local dissector_table = DissectorTable.get("udp.port")
 dissector_table:add(9090, suft_p)
+dissector_table:add(9008, suft_p)
 dissector_table:add(5001, suft_p)
