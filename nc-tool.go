@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/spance/suft/suft"
+	"github.com/spance/suft/protocol"
 )
 
 func init() {
@@ -18,7 +18,6 @@ func init() {
 var waiting = make(chan byte, 2)
 
 func main() {
-	//runtime.GOMAXPROCS(1)
 	var laddr, raddr string
 	var serv bool
 	var p suft.Params
@@ -38,11 +37,13 @@ func main() {
 	suft.SetParams(&p)
 
 	e, err := suft.NewEndpoint(laddr, serv)
-	log.Println("start", e.LocalAddr(), err)
+	checkErr(err)
+	log.Println("start", e.LocalAddr())
 	var conn *suft.Conn
 	if !serv { // client
 		conn, err = e.Dial(raddr)
-		log.Println("connected to", conn.RemoteAddr(), err)
+		checkErr(err)
+		log.Println("connected to", conn.RemoteAddr())
 		go writeOut(conn)
 		go readIn(conn)
 	} else {
@@ -74,4 +75,10 @@ func writeOut(c *suft.Conn) {
 	wa.Stop(int(n))
 	log.Println("W done", err, c.Close())
 	waiting <- 1
+}
+
+func checkErr(e error) {
+	if e != nil {
+		log.Fatalln(e)
+	}
 }

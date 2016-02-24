@@ -21,6 +21,7 @@ var packetTypeNames = map[byte]string{
 	0:   "NOOP",
 	1:   "SYN",
 	2:   "ACK",
+	3:   "SYN+ACK",
 	4:   "SACK",
 	8:   "TIME",
 	12:  "SACK+TIME",
