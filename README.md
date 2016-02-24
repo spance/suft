@@ -69,7 +69,7 @@ GPLv2
 
 main package include a tool for testing, similar to netcat (nc).
 
-build with `go build -o suft-nc`
+build with `go get -u -v github.com/spance/suft/suft-nc`
 
 ```
 ./suft-nc [-l addr:port] [-r addr:port] [-s] [-b 10] [-fr] < [send_file] > [recv_file]
