@@ -1,12 +1,13 @@
 # Introduction
 
 [![Join the chat at https://gitter.im/spance/suft](https://badges.gitter.im/spance/suft.svg)](https://gitter.im/spance/suft?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![GoDoc](https://godoc.org/github.com/spance/suft/protocol?status.svg)](https://godoc.org/github.com/spance/suft/protocol)
 
 Small-scale UDP Fast Transmission Protocol, SUFT ?
 
 The SUFT is a application layer transmission protocol based on UDP and implemented in Golang. It provides some of the same service features: stream-oriented like TCP, low latency and esures reliable, ordered transport of stream with plain congestion control.
 
-The protocol is designed for maximizing throughput and minimizing effect of losing packets on throughput, and it oriented in small and medium-scale communication scene.
+The protocol is designed for maximizing throughput and minimizing effect of losing packets on throughput, and it just oriented in small and medium-scale communication scene or some TCP incapable situations.
 
 # Goals & Features
 
@@ -17,12 +18,14 @@ The protocol is designed for maximizing throughput and minimizing effect of losi
 
 # Protocol APIs
 
-SUFT implements the [Golang: net.Conn](https://golang.org/pkg/net/#Conn) interface completely.
+SUFT implements the Golang: [net.Conn](https://golang.org/pkg/net/#Conn) and [net.Listener](https://golang.org/pkg/net/#Listener) interfaces completely.
 
-```
-e, err := suft.NewEndpoint(laddr string)
-conn := e.Dial(raddr string) // for client
-conn := e.Listen() // for server
+```go
+e, err := suft.NewEndpoint(lAddr string, isServ bool)
+// for server
+conn := e.Listen() // e.Accept()
+// for client
+conn, err := e.Dial(rAddr string)
 ```
 
 # Basic Theories
@@ -46,20 +49,6 @@ latency, window and traffic speed
 --------- * mss * win = Speed
  latency
 ```
-
-# Known Issues
-
-1. Numbers
-
-   seq, ack... use uint32, that means the connection cannot transmit more than 4G packets.
-
-2. Detecting channel capacity
-
-   to do or NOT ?
-
-3. Test
-
-   need a lot of testing under real-world scene.
 
 # License
 
@@ -106,3 +95,17 @@ Notes:
 
 1. the target will be connected can't be located behind NAT (or should use port mapping)
 2. use improper bandwidth(-b) may waste huge bandwidth and may be suspected of being used for the purpose of attack.
+
+# Known Issues
+
+1. Numbers
+
+   seq, ack... use uint32, that means one connection cannot transmit more than 4G packets (bytes ∈ [4GB, 5.6TB]).
+
+2. Detecting channel capacity
+
+   to do or NOT ?
+
+3. Test
+
+   need a lot of testing under real-world scene. Welcome to share your test results.

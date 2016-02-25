@@ -3,8 +3,10 @@ package suft
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cloudflare/golibs/bytepool"
@@ -25,6 +27,7 @@ type connId struct {
 
 type endpoint struct {
 	udpconn    *net.UDPConn
+	state      int32
 	idSeq      uint32
 	isServ     bool
 	registry   map[uint32]*Conn
@@ -54,7 +57,10 @@ func NewEndpoint(laddr string, isServ bool) (*endpoint, error) {
 		timeout:    NewTimer(0),
 		listenChan: make(chan *Conn, 1),
 	}
-	if !isServ {
+	if isServ {
+		e.state = S_EST0
+	} else {
+		e.state = S_EST1
 		e.idSeq = 0xff0
 	}
 	e.udpconn.SetReadBuffer(_SO_BUF_SIZE)
@@ -96,6 +102,9 @@ func (e *endpoint) internal_listen() {
 
 		} else {
 			fmt.Println("err", err)
+			if atomic.LoadInt32(&e.state) == S_FIN {
+				return
+			}
 		}
 	}
 }
@@ -111,6 +120,9 @@ func (e *endpoint) Dial(addr string) (*Conn, error) {
 	conn := NewConn(e, rAddr, id)
 	e.registry[id.lid] = conn
 	e.mlock.Unlock()
+	if atomic.LoadInt32(&e.state) == S_FIN {
+		return nil, io.EOF
+	}
 	err = conn.initConnection(nil)
 	return conn, err
 }
@@ -141,12 +153,37 @@ func (e *endpoint) removeConn(id connId) {
 	e.mlock.Unlock()
 }
 
-func (e *endpoint) LocalAddr() net.Addr {
+// net.Listener
+func (e *endpoint) Close() error {
+	state := atomic.LoadInt32(&e.state)
+	if state > 0 && atomic.CompareAndSwapInt32(&e.state, state, S_FIN) {
+		err := e.udpconn.Close()
+		e.registry = make(map[uint32]*Conn)
+		return err
+	}
+	return nil
+}
+
+// net.Listener
+func (e *endpoint) Addr() net.Addr {
 	return e.udpconn.LocalAddr()
 }
 
+// net.Listener
+func (e *endpoint) Accept() (net.Conn, error) {
+	if atomic.LoadInt32(&e.state) == S_EST1 {
+		return <-e.listenChan, nil
+	} else {
+		return nil, io.EOF
+	}
+}
+
 func (e *endpoint) Listen() *Conn {
-	return <-e.listenChan
+	if atomic.LoadInt32(&e.state) == S_EST1 {
+		return <-e.listenChan
+	} else {
+		return nil
+	}
 }
 
 func (e *endpoint) getConnId(buf []byte) connId {

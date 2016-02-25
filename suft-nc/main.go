@@ -38,7 +38,7 @@ func main() {
 
 	e, err := suft.NewEndpoint(laddr, serv)
 	checkErr(err)
-	log.Println("start", e.LocalAddr())
+	log.Println("start", e.Addr())
 	var conn *suft.Conn
 	if !serv { // client
 		conn, err = e.Dial(raddr)
