@@ -55,7 +55,7 @@ func NewEndpoint(laddr string, isServ bool) (*endpoint, error) {
 		isServ:     isServ,
 		registry:   make(map[uint32]*Conn),
 		timeout:    NewTimer(0),
-		listenChan: make(chan *Conn, 1),
+		listenChan: make(chan *Conn),
 	}
 	if isServ {
 		e.state = S_EST0
@@ -171,7 +171,7 @@ func (e *endpoint) Addr() net.Addr {
 
 // net.Listener
 func (e *endpoint) Accept() (net.Conn, error) {
-	if atomic.LoadInt32(&e.state) == S_EST1 {
+	if atomic.LoadInt32(&e.state) == S_EST0 {
 		return <-e.listenChan, nil
 	} else {
 		return nil, io.EOF
@@ -179,7 +179,7 @@ func (e *endpoint) Accept() (net.Conn, error) {
 }
 
 func (e *endpoint) Listen() *Conn {
-	if atomic.LoadInt32(&e.state) == S_EST1 {
+	if atomic.LoadInt32(&e.state) == S_EST0 {
 		return <-e.listenChan
 	} else {
 		return nil
