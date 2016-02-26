@@ -25,7 +25,7 @@ type connId struct {
 	rid uint32
 }
 
-type endpoint struct {
+type Endpoint struct {
 	udpconn    *net.UDPConn
 	state      int32
 	idSeq      uint32
@@ -44,12 +44,12 @@ func init() {
 	bpool.Init(0, 4000)
 }
 
-func NewEndpoint(laddr string, isServ bool) (*endpoint, error) {
+func NewEndpoint(laddr string, isServ bool) (*Endpoint, error) {
 	conn, err := net.ListenPacket("udp", laddr)
 	if err != nil {
 		return nil, err
 	}
-	e := &endpoint{
+	e := &Endpoint{
 		udpconn:    conn.(*net.UDPConn),
 		idSeq:      1,
 		isServ:     isServ,
@@ -69,7 +69,7 @@ func NewEndpoint(laddr string, isServ bool) (*endpoint, error) {
 	return e, nil
 }
 
-func (e *endpoint) internal_listen() {
+func (e *Endpoint) internal_listen() {
 	for {
 		//var buf = make([]byte, 1600)
 		var buf = bpool.Get(1600)
@@ -109,7 +109,7 @@ func (e *endpoint) internal_listen() {
 	}
 }
 
-func (e *endpoint) Dial(addr string) (*Conn, error) {
+func (e *Endpoint) Dial(addr string) (*Conn, error) {
 	rAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return nil, err
@@ -127,7 +127,7 @@ func (e *endpoint) Dial(addr string) (*Conn, error) {
 	return conn, err
 }
 
-func (e *endpoint) acceptNewConn(id connId, addr *net.UDPAddr, buf []byte) {
+func (e *Endpoint) acceptNewConn(id connId, addr *net.UDPAddr, buf []byte) {
 	e.mlock.Lock()
 	e.idSeq++
 	id.lid = e.idSeq
@@ -147,14 +147,14 @@ func (e *endpoint) acceptNewConn(id connId, addr *net.UDPAddr, buf []byte) {
 	}
 }
 
-func (e *endpoint) removeConn(id connId) {
+func (e *Endpoint) removeConn(id connId) {
 	e.mlock.Lock()
 	delete(e.registry, id.lid)
 	e.mlock.Unlock()
 }
 
 // net.Listener
-func (e *endpoint) Close() error {
+func (e *Endpoint) Close() error {
 	state := atomic.LoadInt32(&e.state)
 	if state > 0 && atomic.CompareAndSwapInt32(&e.state, state, S_FIN) {
 		err := e.udpconn.Close()
@@ -165,12 +165,12 @@ func (e *endpoint) Close() error {
 }
 
 // net.Listener
-func (e *endpoint) Addr() net.Addr {
+func (e *Endpoint) Addr() net.Addr {
 	return e.udpconn.LocalAddr()
 }
 
 // net.Listener
-func (e *endpoint) Accept() (net.Conn, error) {
+func (e *Endpoint) Accept() (net.Conn, error) {
 	if atomic.LoadInt32(&e.state) == S_EST0 {
 		return <-e.listenChan, nil
 	} else {
@@ -178,7 +178,7 @@ func (e *endpoint) Accept() (net.Conn, error) {
 	}
 }
 
-func (e *endpoint) Listen() *Conn {
+func (e *Endpoint) Listen() *Conn {
 	if atomic.LoadInt32(&e.state) == S_EST0 {
 		return <-e.listenChan
 	} else {
@@ -186,14 +186,14 @@ func (e *endpoint) Listen() *Conn {
 	}
 }
 
-func (e *endpoint) getConnId(buf []byte) connId {
+func (e *Endpoint) getConnId(buf []byte) connId {
 	// TODO determine magic header
 	// magic := binary.BigEndian.Uint64(buf)
 	id := binary.BigEndian.Uint64(buf[MAGIC_SIZE+2:])
 	return connId{uint32(id >> 32), uint32(id)}
 }
 
-func (e *endpoint) dispatch(c *Conn, buf []byte) {
+func (e *Endpoint) dispatch(c *Conn, buf []byte) {
 	e.timeout.Reset(30)
 	select {
 	case c.evRecv <- buf:

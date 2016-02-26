@@ -35,7 +35,7 @@ func (e *TimeoutError) Temporary() bool { return true }
 type Conn struct {
 	sock   *net.UDPConn
 	dest   *net.UDPAddr
-	edp    *endpoint
+	edp    *Endpoint
 	connId connId // 8 bytes
 	// events
 	evRecv  chan []byte
@@ -78,7 +78,7 @@ type Conn struct {
 	fRCnt     int
 }
 
-func NewConn(e *endpoint, dest *net.UDPAddr, id connId) *Conn {
+func NewConn(e *Endpoint, dest *net.UDPAddr, id connId) *Conn {
 	c := &Conn{
 		sock:    e.udpconn,
 		dest:    dest,
