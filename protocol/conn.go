@@ -31,9 +31,6 @@ const (
 )
 
 var debug int
-var bandwidth int64
-var fastRetransmitEnabled bool
-var superRetransmit bool
 
 func nodeOf(pk *packet) *qNode {
 	return &qNode{packet: pk}
@@ -164,8 +161,8 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 	c.outDupCnt += int(count)
 	if count > 0 {
 		// shrink cwnd to 1/2 if RTO 1/8 cwnd in FR or if RTO 1/4 cwnd in non-FR
-		shrcond := (fastRetransmitEnabled && count > c.cwnd>>3) || (!fastRetransmitEnabled && count > c.cwnd>>2)
-		if shrcond && !superRetransmit {
+		shrcond := (c.fastRetransmit && count > c.cwnd>>3) || (!c.fastRetransmit && count > c.cwnd>>2)
+		if shrcond && !c.superRetransmit {
 			log.Printf("shrink cwnd from=%d to=%d s/2=%d", c.cwnd, c.cwnd>>1, c.swnd>>1)
 			c.lastShrink = Now()
 			// ensure cwnd >= swnd/2
@@ -342,7 +339,7 @@ func unmarshallSAck(data []byte) (bmap []uint64, tbl uint32, delayed uint16, scn
 	return
 }
 
-func calSwnd(rtt int64) int32 {
+func calSwnd(bandwidth, rtt int64) int32 {
 	w := int32(bandwidth * rtt / (8000 * MSS))
 	if w <= 640 {
 		return w
@@ -383,7 +380,7 @@ func (c *Conn) measure(seq uint32, delayed int64, scnt int8) {
 			c.rtt = MIN_RTT
 		}
 		// s-swnd 1/8
-		swnd := c.swnd<<3 - c.swnd + calSwnd(c.rtt)
+		swnd := c.swnd<<3 - c.swnd + calSwnd(c.bandwidth, c.rtt)
 		c.swnd = swnd >> 3
 		c.ato = c.rtt >> 4
 		if c.ato < MIN_ATO {
@@ -427,7 +424,7 @@ func (c *Conn) processSAck(pk *packet) {
 		c.measure(pk.seq, int64(delayed), scnt)
 	}
 	deleted, missed, continuous := c.outQ.deleteByBitmap(bmap, pk.ack, tbl)
-	if fastRetransmitEnabled && !continuous {
+	if c.fastRetransmit && !continuous {
 		// peer Q is uncontinuous, then trigger FR
 		select {
 		case c.evSWnd <- VRETR_IMMED:

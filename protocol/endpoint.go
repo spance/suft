@@ -20,6 +20,17 @@ var (
 	bpool bytepool.BytePool
 )
 
+type Params struct {
+	LocalAddr       string
+	Bandwidth       int64
+	Debug           int
+	IsServ          bool
+	FastRetransmit  bool
+	SuperRetransmit bool
+	EnablePprof     bool
+	Stacktrace      bool
+}
+
 type connId struct {
 	lid uint32
 	rid uint32
@@ -30,10 +41,11 @@ type Endpoint struct {
 	state      int32
 	idSeq      uint32
 	isServ     bool
+	listenChan chan *Conn
 	registry   map[uint32]*Conn
 	mlock      sync.RWMutex
 	timeout    *iTimer
-	listenChan chan *Conn
+	params     Params
 }
 
 func (c *connId) setRid(b []byte) {
@@ -44,25 +56,31 @@ func init() {
 	bpool.Init(0, 4000)
 }
 
-func NewEndpoint(laddr string, isServ bool) (*Endpoint, error) {
-	conn, err := net.ListenPacket("udp", laddr)
+func NewEndpoint(p *Params) (*Endpoint, error) {
+	set_debug_params(p)
+	if p.Bandwidth <= 0 || p.Bandwidth > 100 {
+		return nil, fmt.Errorf("bw->(0,100]")
+	}
+	conn, err := net.ListenPacket("udp", p.LocalAddr)
 	if err != nil {
 		return nil, err
 	}
 	e := &Endpoint{
 		udpconn:    conn.(*net.UDPConn),
 		idSeq:      1,
-		isServ:     isServ,
+		isServ:     p.IsServ,
+		listenChan: make(chan *Conn, 1),
 		registry:   make(map[uint32]*Conn),
 		timeout:    NewTimer(0),
-		listenChan: make(chan *Conn),
+		params:     *p,
 	}
-	if isServ {
+	if e.isServ {
 		e.state = S_EST0
 	} else {
 		e.state = S_EST1
 		e.idSeq = 0xff0
 	}
+	e.params.Bandwidth = p.Bandwidth << 20 // mbps to bps
 	e.udpconn.SetReadBuffer(_SO_BUF_SIZE)
 	e.udpconn.SetWriteBuffer(_SO_BUF_SIZE)
 	go e.internal_listen()
@@ -159,6 +177,10 @@ func (e *Endpoint) Close() error {
 	if state > 0 && atomic.CompareAndSwapInt32(&e.state, state, S_FIN) {
 		err := e.udpconn.Close()
 		e.registry = make(map[uint32]*Conn)
+		select { // release listeners
+		case e.listenChan <- nil:
+		default:
+		}
 		return err
 	}
 	return nil
@@ -184,6 +206,21 @@ func (e *Endpoint) Listen() *Conn {
 	} else {
 		return nil
 	}
+}
+
+// tmo in MS
+func (e *Endpoint) ListenTimeout(tmo int64) *Conn {
+	if tmo <= 0 {
+		return e.Listen()
+	}
+	if atomic.LoadInt32(&e.state) == S_EST0 {
+		select {
+		case c := <-e.listenChan:
+			return c
+		case <-NewTimerChan(tmo):
+		}
+	}
+	return nil
 }
 
 func (e *Endpoint) getConnId(buf []byte) connId {

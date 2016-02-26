@@ -21,9 +21,11 @@ The protocol is designed for maximizing throughput and minimizing effect of losi
 SUFT implements the Golang: [net.Conn](https://golang.org/pkg/net/#Conn) and [net.Listener](https://golang.org/pkg/net/#Listener) interfaces completely.
 
 ```go
-e, err := suft.NewEndpoint(lAddr string, isServ bool)
+import "github.com/spance/suft/protocol"
+
+e, err := suft.NewEndpoint(p *suft.Params)
 // for server
-conn := e.Listen() // e.Accept()
+conn := e.Listen() // or e.Accept()
 // for client
 conn, err := e.Dial(rAddr string)
 ```

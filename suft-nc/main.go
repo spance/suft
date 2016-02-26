@@ -18,13 +18,12 @@ func init() {
 var waiting = make(chan byte, 2)
 
 func main() {
-	var laddr, raddr string
-	var serv bool
+	var raddr string
 	var p suft.Params
-	flag.StringVar(&laddr, "l", ":9090", "local")
+	flag.StringVar(&p.LocalAddr, "l", "", "local")
 	flag.StringVar(&raddr, "r", ":9090", "remote")
-	flag.BoolVar(&serv, "s", false, "is server")
-	flag.BoolVar(&p.FastRetransmitEnabled, "fr", false, "enableFastRetransmit")
+	flag.BoolVar(&p.IsServ, "s", false, "is server")
+	flag.BoolVar(&p.FastRetransmit, "fr", false, "enableFastRetransmit")
 	flag.BoolVar(&p.SuperRetransmit, "sr", false, "superRetransmit")
 	flag.Int64Var(&p.Bandwidth, "b", 2, "bandwidth in mbps")
 	flag.IntVar(&p.Debug, "debug", 0, "debug")
@@ -32,16 +31,15 @@ func main() {
 	flag.BoolVar(&p.Stacktrace, "stacktrace", false, "stacktrace")
 	flag.Parse()
 
-	if !serv && raddr == ":9090" {
+	if !p.IsServ && raddr == ":9090" {
 		log.Fatalln("missing -r")
 	}
-	suft.SetParams(&p)
 
-	e, err := suft.NewEndpoint(laddr, serv)
+	e, err := suft.NewEndpoint(&p)
 	checkErr(err)
 	log.Println("start", e.Addr())
 	var conn *suft.Conn
-	if !serv { // client
+	if !p.IsServ { // client
 		conn, err = e.Dial(raddr)
 		checkErr(err)
 		log.Println("connected to", conn.RemoteAddr())

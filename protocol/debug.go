@@ -8,39 +8,27 @@ import (
 	"os/signal"
 	"runtime"
 	"runtime/pprof"
+	"sync/atomic"
 	"syscall"
 )
 
-type Params struct {
-	FastRetransmitEnabled bool
-	SuperRetransmit       bool
-	Bandwidth             int64
-	Debug                 int
-	EnablePprof           bool
-	Stacktrace            bool
-}
-
-func SetParams(p *Params) {
-	fastRetransmitEnabled = p.FastRetransmitEnabled
-	superRetransmit = p.SuperRetransmit
-	debug = p.Debug
-	enable_pprof = p.EnablePprof
-	stacktrace = p.Stacktrace
-	if p.Bandwidth <= 0 || p.Bandwidth > 100 {
-		log.Fatalln("bw->(0,100]")
-	}
-	bandwidth = p.Bandwidth << 20 // mbps to bps
-	if enable_pprof {
-		f, err := os.Create("suft.pprof")
-		if err != nil {
-			log.Fatalln(err)
-		}
-		pprof.StartCPUProfile(f)
-	}
-}
-
 var enable_pprof bool
-var stacktrace bool
+var enable_stacktrace bool
+var debug_inited int32
+
+func set_debug_params(p *Params) {
+	if atomic.CompareAndSwapInt32(&debug_inited, 0, 1) {
+		enable_pprof = p.EnablePprof
+		enable_stacktrace = p.Stacktrace
+		if enable_pprof {
+			f, err := os.Create("suft.pprof")
+			if err != nil {
+				log.Fatalln(err)
+			}
+			pprof.StartCPUProfile(f)
+		}
+	}
+}
 
 func (c *Conn) PrintState() {
 	log.Printf("inQ=%d inQReady=%d outQ=%d", c.inQ.size(), len(c.inQReady), c.outQ.size())
@@ -51,10 +39,8 @@ func (c *Conn) PrintState() {
 	if c.outPkCnt > 0 {
 		log.Printf("txpc=%d dups=%d %%d=%f%%", c.outPkCnt, c.outDupCnt, 100*float32(c.outDupCnt)/float32(c.outPkCnt))
 	}
-	if fastRetransmitEnabled {
-		log.Printf("FastRetransmit=%d", c.fRCnt)
-	}
-	if stacktrace {
+	log.Printf("current-rtt=%d FastRetransmit=%d", c.rtt, c.fRCnt)
+	if enable_stacktrace {
 		var buf = make([]byte, 6400)
 		for i := 0; i < 3; i++ {
 			n := runtime.Stack(buf, true)

@@ -70,6 +70,10 @@ type Conn struct {
 	inQDirty    bool
 	inMaxCtnSeq uint32
 	lastReadSeq uint32 // last user read seq
+	// params
+	bandwidth       int64
+	fastRetransmit  bool
+	superRetransmit bool
 	// statistics
 	inPkCnt   int
 	inDupCnt  int
@@ -93,6 +97,10 @@ func NewConn(e *Endpoint, dest *net.UDPAddr, id connId) *Conn {
 		outQ:    NewLinkedMap(_QModeOut),
 		inQ:     NewLinkedMap(_QModeIn),
 	}
+	p := e.params
+	c.bandwidth = p.Bandwidth
+	c.fastRetransmit = p.FastRetransmit
+	c.superRetransmit = p.SuperRetransmit
 	return c
 }
 
@@ -115,7 +123,7 @@ func (c *Conn) initConnection(buf []byte) (err error) {
 		c.ato = maxI64(c.rtt>>4, MIN_ATO)
 		c.ato = minI64(c.ato, MAX_ATO)
 		// initial cwnd
-		c.swnd = calSwnd(c.rtt) >> 1
+		c.swnd = calSwnd(c.bandwidth, c.rtt) >> 1
 		c.cwnd = 8
 		go c.internalRecvLoop()
 		go c.internalSendLoop()
