@@ -14,7 +14,7 @@ const (
 	MIN_RTT     = 8
 	MIN_RTO     = 30
 	MIN_ATO     = 2
-	MAX_ATO     = 30
+	MAX_ATO     = 10
 )
 
 const (
@@ -126,12 +126,12 @@ func (c *Conn) internalAckLoop() {
 			v = VACK_MUST
 		case v = <-c.evAck:
 			ackTimer.TryActive(c.ato)
-			if lastAckState != v {
-				v = VACK_MUST
-			} else if v == _CLOSE {
+			if v == _CLOSE {
 				return
+			} else if lastAckState != v {
+				lastAckState = v
+				v = VACK_MUST
 			}
-			lastAckState = v
 		}
 		c.inlock.Lock()
 		if pkAck := c.makeAck(v); pkAck != nil {
@@ -388,6 +388,8 @@ func (c *Conn) measure(seq uint32, delayed int64, scnt int8) {
 		c.ato = c.rtt >> 4
 		if c.ato < MIN_ATO {
 			c.ato = MIN_ATO
+		} else if c.ato > MAX_ATO {
+			c.ato = MAX_ATO
 		}
 		if err < 0 {
 			err = -err

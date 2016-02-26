@@ -36,7 +36,7 @@ type Conn struct {
 	sock   *net.UDPConn
 	dest   *net.UDPAddr
 	edp    *endpoint
-	connId connId
+	connId connId // 8 bytes
 	// events
 	evRecv  chan []byte
 	evRead  chan byte
@@ -56,7 +56,6 @@ type Conn struct {
 	lastAck     uint32
 	lastAckTime int64
 	lastShrink  int64
-	ucc         int64
 	ato         int64
 	rto         int64
 	rtt         int64
@@ -113,7 +112,8 @@ func (c *Conn) initConnection(buf []byte) (err error) {
 		c.mdev = c.rtt << 1
 		c.srtt = c.rtt << 3
 		c.rto = maxI64(c.rtt*3, MIN_RTO)
-		c.ato = maxI64(c.rtt>>1, MIN_ATO)
+		c.ato = maxI64(c.rtt>>4, MIN_ATO)
+		c.ato = minI64(c.ato, MAX_ATO)
 		// initial cwnd
 		c.swnd = calSwnd(c.rtt) >> 1
 		c.cwnd = 8

@@ -28,6 +28,7 @@ func main() {
 	flag.BoolVar(&p.SuperRetransmit, "sr", false, "superRetransmit")
 	flag.Int64Var(&p.Bandwidth, "b", 2, "bandwidth in mbps")
 	flag.IntVar(&p.Debug, "debug", 0, "debug")
+	flag.BoolVar(&p.EnablePprof, "pprof", false, "pprof")
 	flag.BoolVar(&p.Stacktrace, "stacktrace", false, "stacktrace")
 	flag.Parse()
 
@@ -56,7 +57,7 @@ func main() {
 	conn.PrintState()
 	select {
 	case <-waiting:
-	case <-time.After(time.Millisecond * 200):
+	case <-time.After(time.Second):
 	}
 }
 

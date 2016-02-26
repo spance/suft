@@ -2,8 +2,9 @@
 *.bat
 *.sh
 big.*
-raproxy
+rap
 *.pprof
+*.pdf
 *.log
 *.tmp
 *.dmp
