@@ -18,6 +18,7 @@ var debug_inited int32
 
 func set_debug_params(p *Params) {
 	if atomic.CompareAndSwapInt32(&debug_inited, 0, 1) {
+		debug = p.Debug
 		enable_pprof = p.EnablePprof
 		enable_stacktrace = p.Stacktrace
 		if enable_pprof {

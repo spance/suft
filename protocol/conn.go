@@ -15,6 +15,8 @@ const (
 	MIN_RTO     = 30
 	MIN_ATO     = 2
 	MAX_ATO     = 10
+	MIN_SWND    = 10
+	MAX_SWND    = 640
 )
 
 const (
@@ -120,12 +122,14 @@ func (c *Conn) internalAckLoop() {
 		var v byte
 		select {
 		case <-ackTimer.C:
-			v = VACK_MUST
+			// may cause sending duplicated ack if ato>rtt
+			v = VACK_QUICK
 		case v = <-c.evAck:
 			ackTimer.TryActive(c.ato)
-			if v == _CLOSE {
-				return
-			} else if lastAckState != v {
+			if lastAckState != v {
+				if v == _CLOSE {
+					return
+				}
 				lastAckState = v
 				v = VACK_MUST
 			}
@@ -341,10 +345,14 @@ func unmarshallSAck(data []byte) (bmap []uint64, tbl uint32, delayed uint16, scn
 
 func calSwnd(bandwidth, rtt int64) int32 {
 	w := int32(bandwidth * rtt / (8000 * MSS))
-	if w <= 640 {
-		return w
+	if w <= MAX_SWND {
+		if w >= MIN_SWND {
+			return w
+		} else {
+			return MIN_SWND
+		}
 	} else {
-		return 640
+		return MAX_SWND
 	}
 }
 
