@@ -75,6 +75,7 @@ type Conn struct {
 	fastRetransmit  bool
 	superRetransmit bool
 	// statistics
+	urgent    int
 	inPkCnt   int
 	inDupCnt  int
 	outPkCnt  int
@@ -378,6 +379,30 @@ func (c *Conn) afterCloseW() {
 func (c *Conn) afterShutdown() {
 	c.edp.removeConn(c.connId)
 	log.Println("shutdown", c.state)
+}
+
+// drop outQ and shutdown forcibly
+func (c *Conn) forceShutdown() {
+	if atomic.CompareAndSwapInt32(&c.state, S_EST1, S_FIN) {
+		// stop pending inputAndSend
+		c.outlock.Lock()
+		for i := 0; i < cap(c.evSend); i++ {
+			select {
+			case <-c.evSend:
+			default:
+			}
+		}
+		select {
+		case c.evSend <- _CLOSE:
+		default:
+		}
+		c.outQ.reset()
+		c.outlock.Unlock()
+		// stop internalLoops
+		c.evSWnd <- _CLOSE
+		c.evRecv <- nil
+		c.evAck <- _CLOSE
+	}
 }
 
 func (c *Conn) fakeShutdown() {

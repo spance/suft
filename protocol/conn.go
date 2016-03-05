@@ -242,7 +242,14 @@ func (c *Conn) internalWrite(item *qNode) {
 			c.dest = nil
 			return
 		} else {
-			log.Panicln("too many retry............", item)
+			log.Println("too many retry............", item)
+			if c.urgent > 0 {
+				c.forceShutdown()
+				return
+			} else {
+				c.urgent++
+				item.scnt = 10
+			}
 		}
 	}
 	// update current sent time and prev sent time
