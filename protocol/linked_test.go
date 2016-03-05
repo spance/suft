@@ -171,7 +171,7 @@ func Test_bitmap(t *testing.T) {
 	lmap.deleteByBitmap(bmap, head, tbl)
 	var holesResult = make([]uint32, 0, 50)
 	for i := lmap.head; i != nil; i = i.next {
-		if i.scnt != -1 {
+		if i.scnt != SENT_OK {
 			holesResult = append(holesResult, i.seq)
 		}
 	}

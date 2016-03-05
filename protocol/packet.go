@@ -55,13 +55,17 @@ const (
 	MSS = 1438
 )
 
+const (
+	SENT_OK = 0xff
+)
+
 // TODO move connid to packet
 // TODO remove ack field
 type packet struct {
 	seq     uint32
 	ack     uint32
 	flag    uint8
-	scnt    int8
+	scnt    uint8
 	payload []byte
 	buffer  []byte
 }
@@ -81,7 +85,7 @@ func (p *packet) marshall(id connId) []byte {
 	binary.BigEndian.PutUint32(buf[TH_SIZE:], p.seq)
 	binary.BigEndian.PutUint32(buf[TH_SIZE+4:], p.ack)
 	buf[TH_SIZE+8] = p.flag
-	buf[TH_SIZE+9] = byte(p.scnt)
+	buf[TH_SIZE+9] = p.scnt
 	return buf
 }
 
@@ -90,7 +94,7 @@ func unmarshall(pk *packet, buf []byte) {
 		pk.seq = binary.BigEndian.Uint32(buf)
 		pk.ack = binary.BigEndian.Uint32(buf[4:])
 		pk.flag = buf[8]
-		pk.scnt = int8(buf[9])
+		pk.scnt = buf[9]
 		pk.payload = buf[10:]
 	}
 }

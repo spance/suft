@@ -53,7 +53,7 @@ func (c *connId) setRid(b []byte) {
 }
 
 func init() {
-	bpool.Init(0, 4000)
+	bpool.Init(0, 2000)
 }
 
 func NewEndpoint(p *Params) (*Endpoint, error) {
@@ -88,11 +88,14 @@ func NewEndpoint(p *Params) (*Endpoint, error) {
 }
 
 func (e *Endpoint) internal_listen() {
+	const rtmo = 60 * 1e9
+	var pdCtx = getPollCtx(e.udpconn)
 	for {
 		//var buf = make([]byte, 1600)
 		var buf = bpool.Get(1600)
+		net_pollSetDeadline(pdCtx, rtmo, 'r')
 		n, addr, err := e.udpconn.ReadFromUDP(buf)
-		if n >= TH_SIZE+CH_SIZE && err == nil {
+		if err == nil && n >= AH_SIZE {
 			var id = e.getConnId(buf)
 			buf = buf[:n]
 
@@ -119,6 +122,12 @@ func (e *Endpoint) internal_listen() {
 			}
 
 		} else {
+			// idle process
+			if nerr, y := err.(net.Error); y && nerr.Timeout() {
+				bpool.Drain()
+				continue
+			}
+			// other errors
 			fmt.Println("err", err)
 			if atomic.LoadInt32(&e.state) == S_FIN {
 				return

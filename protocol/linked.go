@@ -96,7 +96,7 @@ func (l *linkedMap) deleteAt(n *qNode) {
 func (l *linkedMap) deleteBefore(n *qNode) (left *qNode, deleted int32) {
 	for i := n; i != nil; i = i.prev {
 		delete(l.qmap, i.seq)
-		if i.scnt != -1 {
+		if i.scnt != SENT_OK {
 			deleted++
 			// only outQ could delete at here
 			if l.mode == _QModeOut {
@@ -226,7 +226,7 @@ Iterator:
 		prev = i.seq
 		j += dis // j is next bit index
 		for j >= 65 {
-			if len(bitmap) >= 40 { // bitmap too long
+			if len(bitmap) >= 20 { // bitmap too long
 				break Iterator
 			}
 			bitmap = append(bitmap, bits)
@@ -302,12 +302,12 @@ func (l *linkedMap) deleteByBitmap(bmap []uint64, from uint32, tailBitsLen uint3
 			if lastContinued {
 				maxContinued = i
 			}
-			if i.scnt != -1 {
+			if i.scnt != SENT_OK {
 				// no mark means first deleting
 				deleted++
 			}
 			// don't delete, just mark it
-			i.scnt = -1
+			i.scnt = SENT_OK
 		} else {
 			// known it may be lost
 			if i.miss == 0 {

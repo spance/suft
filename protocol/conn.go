@@ -146,7 +146,7 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 	var now, rto = Now(), c.rto
 	var limit = c.cwnd
 	for item := c.outQ.head; item != nil && limit > 0; item = item.next {
-		if item.scnt != -1 { // ACKed has scnt==-1
+		if item.scnt != SENT_OK { // ACKed has scnt==-1
 			diff := now - item.sent
 			if diff > rto { // already rto
 				c.internalWrite(item)
@@ -183,7 +183,7 @@ func (c *Conn) retransmit2() (count int32) {
 	var fRtt = c.rtt + maxI64(c.rtt>>4, 1)
 	var limit, now = maxI32(minI32(c.cwnd-c.outPending, c.cwnd>>2), 8), Now()
 	for item := c.outQ.head; item != nil && count < limit; item = item.next {
-		if item.scnt != -1 { // ACKed has scnt==-1
+		if item.scnt != SENT_OK { // ACKed has scnt==-1
 			if item.miss >= 3 && now-item.sent >= fRtt {
 				//item.miss = 0
 				c.internalWrite(item)
@@ -312,7 +312,7 @@ func (c *Conn) makeAck(demand byte) (pk *packet) {
 		if delayed < c.rtt {
 			pk.seq = trp.seq
 			pk.flag |= F_TIME
-			buf[1] = byte(trp.scnt)
+			buf[1] = trp.scnt
 			if delayed <= 0 {
 				delayed = 1
 			}
@@ -327,14 +327,14 @@ func (c *Conn) makeAck(demand byte) (pk *packet) {
 	return
 }
 
-func unmarshallSAck(data []byte) (bmap []uint64, tbl uint32, delayed uint16, scnt int8) {
+func unmarshallSAck(data []byte) (bmap []uint64, tbl uint32, delayed uint16, scnt uint8) {
 	if len(data) > 0 {
 		bmap = make([]uint64, len(data)>>3)
 	} else {
 		return
 	}
 	tbl = uint32(data[0])
-	scnt = int8(data[1])
+	scnt = data[1]
 	delayed = binary.BigEndian.Uint16(data[2:])
 	data = data[4:]
 	for i := 0; i < len(bmap); i++ {
@@ -356,7 +356,7 @@ func calSwnd(bandwidth, rtt int64) int32 {
 	}
 }
 
-func (c *Conn) measure(seq uint32, delayed int64, scnt int8) {
+func (c *Conn) measure(seq uint32, delayed int64, scnt uint8) {
 	target := c.outQ.get(seq)
 	if target != nil {
 		var lastSent int64
