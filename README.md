@@ -1,20 +1,17 @@
 # Introduction
 
-[![Join the chat at https://gitter.im/spance/suft](https://badges.gitter.im/spance/suft.svg)](https://gitter.im/spance/suft?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![GoDoc](https://godoc.org/github.com/spance/suft/protocol?status.svg)](https://godoc.org/github.com/spance/suft/protocol)
 
-Small-scale UDP Fast Transmission Protocol, SUFT ?
+The SUFT (Small-scale UDP Fast Transmission) Protocol is an application layer transmission protocol based on UDP and implemented in Golang. It has lower latency than TCP and provides reliable and ordered delivery of a stream of octets under plain congestion control.
 
-The SUFT is a application layer transmission protocol based on UDP and implemented in Golang. It provides some of the same service features: stream-oriented like TCP, low latency and esures reliable, ordered transport of stream with plain congestion control.
-
-The protocol is designed for maximizing throughput and minimizing effect of losing packets on throughput, and it just oriented in small and medium-scale communication scene or some TCP incapable situations.
+The protocol seeks for maximized throughput and minimizes impact of lost packets on throughput. It is only for small/medium-scale communication or some situations where TCP is not applicable.
 
 # Goals & Features
 
-- Transmitting model has predictable performance
-- Fast retransmission could better deal with lossy link
-- Minimum retransmission without wasting traffic
-- No resource consumption while the connection is idle
+- Transmitting model has predictable performance.
+- Fast retransmission mode does better on lossy link.
+- Minimum retransmission mode wastes little traffic.
+- Resource consumption is little while the connection is idle.
 
 # Protocol APIs
 
