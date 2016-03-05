@@ -93,7 +93,7 @@ func (e *Endpoint) internal_listen() {
 	for {
 		//var buf = make([]byte, 1600)
 		var buf = bpool.Get(1600)
-		net_pollSetDeadline(pdCtx, rtmo, 'r')
+		net_pollSetDeadline(pdCtx, rtmo+runtimeNano(), 'r')
 		n, addr, err := e.udpconn.ReadFromUDP(buf)
 		if err == nil && n >= AH_SIZE {
 			var id = e.getConnId(buf)
