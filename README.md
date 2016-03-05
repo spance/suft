@@ -10,8 +10,8 @@ The protocol seeks for maximized throughput and minimizes impact of lost packets
 
 - Transmitting model has predictable performance.
 - Fast retransmission mode does better on lossy link.
-- Minimum retransmission mode wastes little traffic.
-- Resource consumption is little while the connection is idle.
+- Minimum retransmission mode doesn't waste traffic.
+- No resource consumption while the connection is idle.
 
 # Protocol APIs
 
@@ -51,13 +51,29 @@ latency, window and traffic speed
 
 # License
 
-GPLv2
+GPL version 3 or any later version
+
+    SUFT Protocol
+    Copyright (C) <2016>  <spance, l2dy>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Tool Usage
 
-main package include a tool for testing, similar to netcat (nc).
+Main package include a tool for testing, similar to netcat (nc).
 
-build with `go get -u -v github.com/spance/suft/suft-nc`
+Build with `go get -u -v github.com/spance/suft/suft-nc`
 
 ```
 ./suft-nc [-l addr:port] [-r addr:port] [-s] [-b 10] [-fr] < [send_file] > [recv_file]
@@ -70,7 +86,7 @@ build with `go get -u -v github.com/spance/suft/suft-nc`
 -sr: don't shrink window when a lot of packets were lost
 ```
 
-examples:
+Examples:
 
 ```
 // send my_file to remote in 10mbps
@@ -92,8 +108,8 @@ local# ./suft-nc -l :1234 -r remote:9090
 
 Notes:
 
-1. the target will be connected can't be located behind NAT (or should use port mapping)
-2. use improper bandwidth(-b) may waste huge bandwidth and may be suspected of being used for the purpose of attack.
+1. The target to be connected shouldn't be behind NAT (or should use port mapping).
+2. Use improper bandwidth(-b) may waste huge bandwidth and may be suspected.
 
 # Known Issues
 
@@ -103,8 +119,8 @@ Notes:
 
 2. Detecting channel capacity
 
-   to do or NOT ?
+   To do or NOT ?
 
 3. Test
 
-   need a lot of testing under real-world scene. Welcome to share your test results.
+   Needs a lot of testing under real-world scenes. Welcome to share your test results.
