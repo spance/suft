@@ -1,5 +1,6 @@
 # Introduction
 
+[![Build Status](https://travis-ci.org/spance/suft.svg)](https://travis-ci.org/spance/suft)
 [![GoDoc](https://godoc.org/github.com/spance/suft/protocol?status.svg)](https://godoc.org/github.com/spance/suft/protocol)
 
 The SUFT (Small-scale UDP Fast Transmission) Protocol is an application layer transmission protocol based on UDP and implemented in Golang. It has lower latency than TCP and provides reliable and ordered delivery of a stream of octets under plain congestion control.
