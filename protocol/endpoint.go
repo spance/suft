@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -128,9 +129,10 @@ func (e *Endpoint) internal_listen() {
 				continue
 			}
 			// other errors
-			fmt.Println("err", err)
 			if atomic.LoadInt32(&e.state) == S_FIN {
 				return
+			} else {
+				log.Println("Error: read sock", err)
 			}
 		}
 	}
@@ -166,11 +168,11 @@ func (e *Endpoint) acceptNewConn(id connId, addr *net.UDPAddr, buf []byte) {
 		select {
 		case e.listenChan <- conn:
 		case <-time.After(_10ms):
-			fmt.Println("Warn no listening")
+			log.Println("Warn: no listener")
 		}
 	} else {
 		e.removeConn(id)
-		fmt.Println("Error init_connection", err)
+		log.Println("Error: init_connection", err)
 	}
 }
 
@@ -244,6 +246,6 @@ func (e *Endpoint) dispatch(c *Conn, buf []byte) {
 	select {
 	case c.evRecv <- buf:
 	case <-e.timeout.C:
-		fmt.Println("dispatch failed")
+		log.Println("Warn: dispatch packet failed")
 	}
 }

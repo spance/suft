@@ -381,11 +381,11 @@ func (c *Conn) afterShutdown() {
 	log.Println("shutdown", c.state)
 }
 
-// drop outQ and shutdown forcibly
+// drop outQ and force shutdown
 func (c *Conn) forceShutdown() {
 	if atomic.CompareAndSwapInt32(&c.state, S_EST1, S_FIN) {
-		// stop pending inputAndSend
-		c.outlock.Lock()
+		// stop sender
+		//--------------outlock scope
 		for i := 0; i < cap(c.evSend); i++ {
 			select {
 			case <-c.evSend:
@@ -397,11 +397,14 @@ func (c *Conn) forceShutdown() {
 		default:
 		}
 		c.outQ.reset()
-		c.outlock.Unlock()
+		//--------------
+		// stop reader
+		close(c.evRead)
 		// stop internalLoops
 		c.evSWnd <- _CLOSE
 		c.evRecv <- nil
 		c.evAck <- _CLOSE
+		log.Println("force shutdown")
 	}
 }
 
