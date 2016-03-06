@@ -68,7 +68,11 @@ func (c *Conn) internalRecvLoop() {
 		if pk.flag&F_DATA != 0 {
 			c.insertData(pk)
 		} else if pk.flag&F_FIN != 0 {
-			go c.closeR(pk)
+			if pk.flag&F_RESET != 0 {
+				go c.forceShutdownWithLock()
+			} else {
+				go c.closeR(pk)
+			}
 		}
 	}
 }

@@ -28,6 +28,7 @@ var packetTypeNames = map[byte]string{
 	16:  "DATA",
 	64:  "RESET",
 	128: "FIN",
+	192: "FIN+RESET",
 }
 
 const (

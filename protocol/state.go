@@ -381,6 +381,12 @@ func (c *Conn) afterShutdown() {
 	log.Println("shutdown", c.state)
 }
 
+func (c *Conn) forceShutdownWithLock() {
+	c.outlock.Lock()
+	defer c.outlock.Unlock()
+	c.forceShutdown()
+}
+
 // drop outQ and force shutdown
 func (c *Conn) forceShutdown() {
 	if atomic.CompareAndSwapInt32(&c.state, S_EST1, S_FIN) {

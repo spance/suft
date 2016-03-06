@@ -118,11 +118,12 @@ func (e *Endpoint) internal_listen() {
 				if conn != nil {
 					e.dispatch(conn, buf)
 				} else {
+					e.resetPeer(addr, id)
 					dumpb("drop null", buf)
 				}
 			}
 
-		} else {
+		} else if err != nil {
 			// idle process
 			if nerr, y := err.(net.Error); y && nerr.Timeout() {
 				e.idleProcess()
@@ -263,4 +264,10 @@ func (e *Endpoint) dispatch(c *Conn, buf []byte) {
 	case <-e.timeout.C:
 		log.Println("Warn: dispatch packet failed")
 	}
+}
+
+func (e *Endpoint) resetPeer(addr *net.UDPAddr, id connId) {
+	pk := &packet{flag: F_FIN | F_RESET}
+	buf := nodeOf(pk).marshall(id)
+	e.udpconn.WriteToUDP(buf, addr)
 }

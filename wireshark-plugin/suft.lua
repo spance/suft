@@ -38,6 +38,7 @@ local packet_type = {
 	[12] = "SACK+TIME",
 	[16] = "DATA",
 	[128] = "FIN",
+	[192] = "FIN+RESET",
 }
 
 -- suft_p dissector function
