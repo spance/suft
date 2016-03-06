@@ -119,7 +119,7 @@ func (c *Conn) initConnection(buf []byte) (err error) {
 		c.inMaxCtnSeq = c.lastAck
 		c.rtt = maxI64(c.rtt, MIN_RTT)
 		c.mdev = c.rtt << 1
-		c.srtt = c.rtt << 3
+		c.srtt = c.rtt << 2
 		c.rto = maxI64(c.rtt*3, MIN_RTO)
 		c.ato = maxI64(c.rtt>>4, MIN_ATO)
 		c.ato = minI64(c.ato, MAX_ATO)

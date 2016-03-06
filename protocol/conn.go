@@ -391,16 +391,16 @@ func (c *Conn) measure(seq uint32, delayed int64, scnt uint8) {
 		if rtt < maxI64(c.rtt>>3, 1) || delayed > c.rtt>>1 {
 			return
 		}
-		err := rtt - (c.srtt >> 3)
-		// 1/8 new + 7/8 old
+		// srtt: update 1/4
+		err := rtt - (c.srtt >> 2)
 		c.srtt += err
-		c.rtt = c.srtt >> 3
+		c.rtt = c.srtt >> 2
 		if c.rtt < MIN_RTT {
 			c.rtt = MIN_RTT
 		}
-		// s-swnd 1/8
-		swnd := c.swnd<<3 - c.swnd + calSwnd(c.bandwidth, c.rtt)
-		c.swnd = swnd >> 3
+		// s-swnd: update 1/4
+		swnd := c.swnd<<2 - c.swnd + calSwnd(c.bandwidth, c.rtt)
+		c.swnd = swnd >> 2
 		c.ato = c.rtt >> 4
 		if c.ato < MIN_ATO {
 			c.ato = MIN_ATO
@@ -416,7 +416,7 @@ func (c *Conn) measure(seq uint32, delayed int64, scnt uint8) {
 		} else {
 			err -= c.mdev >> 2
 		}
-		// mdev = 3/4 mdev + 1/4 new
+		// mdev: update 1/4
 		c.mdev += err
 		rto := c.rtt + maxI64(c.rtt<<1, c.mdev)
 		if rto >= c.rto {
