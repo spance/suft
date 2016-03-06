@@ -125,7 +125,7 @@ func (e *Endpoint) internal_listen() {
 		} else {
 			// idle process
 			if nerr, y := err.(net.Error); y && nerr.Timeout() {
-				bpool.Drain()
+				e.idleProcess()
 				continue
 			}
 			// other errors
@@ -135,6 +135,21 @@ func (e *Endpoint) internal_listen() {
 				log.Println("Error: read sock", err)
 			}
 		}
+	}
+}
+
+func (e *Endpoint) idleProcess() {
+	// recycle/shrink memory
+	bpool.Drain()
+	e.mlock.Lock()
+	defer e.mlock.Unlock()
+	// reset urgent
+	for _, c := range e.registry {
+		c.outlock.Lock()
+		if c.outQ.size() == 0 && c.urgent != 0 {
+			c.urgent = 0
+		}
+		c.outlock.Unlock()
 	}
 }
 

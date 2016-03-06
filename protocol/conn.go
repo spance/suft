@@ -235,18 +235,18 @@ func (c *Conn) inputAndSend(pk *packet) error {
 }
 
 func (c *Conn) internalWrite(item *qNode) {
-	// TODO Is there a better way to handle exceptions?
 	if item.scnt >= 20 {
+		// no exception of sending fin
 		if item.flag&F_FIN != 0 {
 			c.fakeShutdown()
 			c.dest = nil
 			return
 		} else {
-			log.Println("too many retry............", item)
-			if c.urgent > 0 {
+			log.Println("Warn: too many retries", item)
+			if c.urgent > 0 { // abort
 				c.forceShutdown()
 				return
-			} else {
+			} else { // continue to retry 10
 				c.urgent++
 				item.scnt = 10
 			}
