@@ -56,6 +56,7 @@ type Conn struct {
 	lastAck     uint32
 	lastAckTime int64
 	lastShrink  int64
+	lastRstMis  int64
 	ato         int64
 	rto         int64
 	rtt         int64
@@ -119,8 +120,8 @@ func (c *Conn) initConnection(buf []byte) (err error) {
 		c.inMaxCtnSeq = c.lastAck
 		c.rtt = maxI64(c.rtt, MIN_RTT)
 		c.mdev = c.rtt << 1
-		c.srtt = c.rtt << 2
-		c.rto = maxI64(c.rtt*3, MIN_RTO)
+		c.srtt = c.rtt << 3
+		c.rto = maxI64(c.rtt*2, MIN_RTO)
 		c.ato = maxI64(c.rtt>>4, MIN_ATO)
 		c.ato = minI64(c.ato, MAX_ATO)
 		// initial cwnd

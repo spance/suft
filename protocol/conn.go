@@ -16,7 +16,7 @@ const (
 	MIN_ATO     = 2
 	MAX_ATO     = 10
 	MIN_SWND    = 10
-	MAX_SWND    = 640
+	MAX_SWND    = 960
 )
 
 const (
@@ -170,9 +170,9 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 	if count > 0 {
 		// shrink cwnd to 1/2 if RTO 1/8 cwnd in FR or if RTO 1/4 cwnd in non-FR
 		shrcond := (c.fastRetransmit && count > c.cwnd>>3) || (!c.fastRetransmit && count > c.cwnd>>2)
-		if shrcond && !c.superRetransmit {
+		if shrcond && now-c.lastShrink > c.rto && !c.superRetransmit {
 			log.Printf("shrink cwnd from=%d to=%d s/2=%d", c.cwnd, c.cwnd>>1, c.swnd>>1)
-			c.lastShrink = Now()
+			c.lastShrink = now
 			// ensure cwnd >= swnd/2
 			c.cwnd = maxI32(c.cwnd>>1, c.swnd>>1)
 		}
@@ -189,7 +189,7 @@ func (c *Conn) retransmit2() (count int32) {
 	for item := c.outQ.head; item != nil && count < limit; item = item.next {
 		if item.scnt != SENT_OK { // ACKed has scnt==-1
 			if item.miss >= 3 && now-item.sent >= fRtt {
-				//item.miss = 0
+				item.miss = 0
 				c.internalWrite(item)
 				c.fRCnt++
 				count++
@@ -205,7 +205,7 @@ func (c *Conn) inputAndSend(pk *packet) error {
 	c.outlock.Lock()
 	// inflight packets exceeds cwnd
 	// inflight includes: 1, unacked; 2, missed
-	for c.outPending >= c.cwnd {
+	for c.outPending >= c.cwnd+c.missed {
 		c.outlock.Unlock()
 		if c.wtmo > 0 {
 			var tmo int64
@@ -391,16 +391,16 @@ func (c *Conn) measure(seq uint32, delayed int64, scnt uint8) {
 		if rtt < maxI64(c.rtt>>3, 1) || delayed > c.rtt>>1 {
 			return
 		}
-		// srtt: update 1/4
-		err := rtt - (c.srtt >> 2)
+		// srtt: update 1/8
+		err := rtt - (c.srtt >> 3)
 		c.srtt += err
-		c.rtt = c.srtt >> 2
+		c.rtt = c.srtt >> 3
 		if c.rtt < MIN_RTT {
 			c.rtt = MIN_RTT
 		}
 		// s-swnd: update 1/4
-		swnd := c.swnd<<2 - c.swnd + calSwnd(c.bandwidth, c.rtt)
-		c.swnd = swnd >> 2
+		swnd := c.swnd<<3 - c.swnd + calSwnd(c.bandwidth, c.rtt)
+		c.swnd = swnd >> 3
 		c.ato = c.rtt >> 4
 		if c.ato < MIN_ATO {
 			c.ato = MIN_ATO
@@ -443,18 +443,22 @@ func (c *Conn) processSAck(pk *packet) {
 		c.measure(pk.seq, int64(delayed), scnt)
 	}
 	deleted, missed, continuous := c.outQ.deleteByBitmap(bmap, pk.ack, tbl)
-	if c.fastRetransmit && !continuous {
-		// peer Q is uncontinuous, then trigger FR
-		select {
-		case c.evSWnd <- VRETR_IMMED:
-		default:
-		}
-	}
 	if deleted > 0 {
 		c.ackHit(deleted, missed)
 		// lock is released
 	} else {
 		c.outlock.Unlock()
+	}
+	if c.fastRetransmit && !continuous {
+		// peer Q is uncontinuous, then trigger FR
+		if deleted == 0 || missed == 0 {
+			c.evSWnd <- VRETR_IMMED
+		} else {
+			select {
+			case c.evSWnd <- VRETR_IMMED:
+			default:
+			}
+		}
 	}
 	if debug >= 2 {
 		log.Printf("SACK qhead=%d deleted=%d outPending=%d on=%d %016x",
@@ -493,18 +497,26 @@ func (c *Conn) processAck(pk *packet) {
 func (c *Conn) ackHit(deleted, missed int32) {
 	// must in outlock
 	c.outPending -= deleted
-	if c.cwnd < c.swnd && Now()-c.lastShrink > c.rtt {
-		c.cwnd += c.cwnd >> 1
+	now := Now()
+	if c.cwnd < c.swnd && now-c.lastShrink > c.rto {
+		if c.cwnd < c.swnd>>1 {
+			c.cwnd <<= 1
+		} else {
+			c.cwnd += deleted << 1
+		}
 	}
 	if c.cwnd > c.swnd {
 		c.cwnd = c.swnd
 	}
-	if missed >= c.missed {
+	if now-c.lastRstMis > c.ato {
+		c.lastRstMis = now
 		c.missed = missed
 	} else {
-		c.missed = (c.missed + missed) >> 1
+		c.missed += missed
 	}
-	c.cwnd += c.missed
+	if c.missed > c.swnd>>3 {
+		c.missed = c.swnd >> 3
+	}
 	c.outlock.Unlock()
 	select {
 	case c.evSend <- 1:

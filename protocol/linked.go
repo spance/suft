@@ -244,17 +244,7 @@ Iterator:
 
 // from= the bitmap start point
 func (l *linkedMap) deleteByBitmap(bmap []uint64, from uint32, tailBitsLen uint32) (deleted, missed int32, lastContinued bool) {
-	var start *qNode
-	// search start point
-	for i := l.head; i != nil; i = i.next {
-		if i.seq == from {
-			start = i
-			break
-		} else if i.seq > from {
-			// [from] is over out of left side
-			return
-		}
-	}
+	var start = l.qmap[from]
 	if start != nil {
 		// delete predecessors
 		if pred := start.prev; pred != nil {
@@ -262,7 +252,7 @@ func (l *linkedMap) deleteByBitmap(bmap []uint64, from uint32, tailBitsLen uint3
 			deleted += n
 		}
 	} else {
-		// [from] is over out of right side
+		// [from] is out of bounds
 		return
 	}
 	var j, bitsLen uint32
