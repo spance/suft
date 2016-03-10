@@ -64,6 +64,8 @@ type Conn struct {
 	mdev        int64
 	rtmo        int64
 	wtmo        int64
+	tSlot       int64
+	lastSErr    int64
 	// queue
 	outQ        *linkedMap
 	inQ         *linkedMap
@@ -75,6 +77,7 @@ type Conn struct {
 	bandwidth       int64
 	fastRetransmit  bool
 	superRetransmit bool
+	avgTraffic      bool
 	// statistics
 	urgent    int
 	inPkCnt   int
@@ -103,6 +106,7 @@ func NewConn(e *Endpoint, dest *net.UDPAddr, id connId) *Conn {
 	c.bandwidth = p.Bandwidth
 	c.fastRetransmit = p.FastRetransmit
 	c.superRetransmit = p.SuperRetransmit
+	c.avgTraffic = p.AvgTraffic
 	return c
 }
 
