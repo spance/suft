@@ -83,7 +83,6 @@ func NewEndpoint(p *Params) (*Endpoint, error) {
 	}
 	e.params.Bandwidth = p.Bandwidth << 20 // mbps to bps
 	e.udpconn.SetReadBuffer(_SO_BUF_SIZE)
-	e.udpconn.SetWriteBuffer(_SO_BUF_SIZE)
 	go e.internal_listen()
 	return e, nil
 }

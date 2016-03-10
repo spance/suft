@@ -174,7 +174,9 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 			log.Printf("shrink cwnd from=%d to=%d s/2=%d", c.cwnd, c.cwnd>>1, c.swnd>>1)
 			c.lastShrink = now
 			// ensure cwnd >= swnd/2
-			c.cwnd = maxI32(c.cwnd>>1, c.swnd>>1)
+			if c.cwnd > c.swnd>>1 {
+				c.cwnd = c.cwnd >> 1
+			}
 		}
 	}
 	if c.outQ.size() > 0 {
@@ -185,7 +187,7 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 
 func (c *Conn) retransmit2() (count int32) {
 	var fRtt = c.rtt + maxI64(c.rtt>>4, 1)
-	var limit, now = maxI32(minI32(c.cwnd-c.outPending, c.cwnd>>2), 8), Now()
+	var limit, now = minI32(c.outPending>>4, 8), Now()
 	for item := c.outQ.head; item != nil && count < limit; item = item.next {
 		if item.scnt != SENT_OK { // ACKed has scnt==-1
 			if item.miss >= 3 && now-item.sent >= fRtt {
@@ -451,7 +453,7 @@ func (c *Conn) processSAck(pk *packet) {
 	}
 	if c.fastRetransmit && !continuous {
 		// peer Q is uncontinuous, then trigger FR
-		if deleted == 0 || missed == 0 {
+		if deleted == 0 {
 			c.evSWnd <- VRETR_IMMED
 		} else {
 			select {
@@ -512,10 +514,10 @@ func (c *Conn) ackHit(deleted, missed int32) {
 		c.lastRstMis = now
 		c.missed = missed
 	} else {
-		c.missed += missed
+		c.missed = c.missed>>1 + missed
 	}
-	if c.missed > c.swnd>>3 {
-		c.missed = c.swnd >> 3
+	if qswnd := c.swnd >> 4; c.missed > qswnd {
+		c.missed = qswnd
 	}
 	c.outlock.Unlock()
 	select {

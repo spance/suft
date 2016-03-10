@@ -26,6 +26,11 @@ func Now() int64 {
 	return s*1e3 + int64(n/1e6)
 }
 
+func NowNS() int64 {
+	s, n := currentTime()
+	return s*1e9 + int64(n)
+}
+
 func NewTimer(d int64) *iTimer {
 	t := iTimer{
 		C: make(chan byte, 1),
