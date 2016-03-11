@@ -235,16 +235,15 @@ func (c *Conn) inputAndSend(pk *packet) error {
 	c.outQ.appendTail(item)
 	c.internalWrite(item)
 	c.outlock.Unlock()
+	// active resending timer, must blocking
+	c.evSWnd <- VSWND_ACTIVE
 	// calculate time error bewteen tslot with actual usage.
 	// consider last sleep time error
 	terr := c.tSlot - c.lastSErr - (NowNS() - t0)
-	// active resending timer
-	// must blocking
-	c.evSWnd <- VSWND_ACTIVE
 	// rest terr/2 if current time usage less than tslot of 100us.
 	if terr > 1e5 && c.avgTraffic {
 		t0 = NowNS()
-		time.Sleep(time.Duration(terr >> 1))
+		time.Sleep(time.Duration(terr >> 2))
 		c.lastSErr = maxI64(NowNS()-t0-terr, 0)
 	} else {
 		c.lastSErr >>= 1
