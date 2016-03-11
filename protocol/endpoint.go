@@ -30,7 +30,7 @@ type Params struct {
 	SuperRetransmit bool
 	EnablePprof     bool
 	Stacktrace      bool
-	AvgTraffic      bool
+	FlatTraffic     bool
 }
 
 type connId struct {

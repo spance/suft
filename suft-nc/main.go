@@ -29,7 +29,7 @@ func main() {
 	flag.IntVar(&p.Debug, "debug", 0, "debug")
 	flag.BoolVar(&p.EnablePprof, "pprof", false, "pprof")
 	flag.BoolVar(&p.Stacktrace, "stacktrace", false, "stacktrace")
-	flag.BoolVar(&p.AvgTraffic, "at", false, "AvgTraffic")
+	flag.BoolVar(&p.FlatTraffic, "ft", false, "FlatTraffic")
 	flag.Parse()
 
 	if !p.IsServ && raddr == ":9090" {

@@ -13,6 +13,7 @@ The protocol seeks for maximized throughput and minimizes impact of lost packets
 - Fast retransmission mode does better on lossy link.
 - Minimum retransmission mode doesn't waste traffic.
 - No resource consumption while the connection is idle.
+- Special modes for certain situations.
 
 # Protocol APIs
 
@@ -85,6 +86,7 @@ Build with `go get -u -v github.com/spance/suft/suft-nc`
 -s:  for server
 -fr: enable fast retransmission (useful for lossy link)
 -sr: don't shrink window when a lot of packets were lost
+-ft: flat traffic (slow down bursty traffic, useful when sender has more bandwidth than receiver)
 ```
 
 Examples:
@@ -110,7 +112,7 @@ local# ./suft-nc -l :1234 -r remote:9090
 Notes:
 
 1. The target to be connected shouldn't be behind NAT (or should use port mapping).
-2. Use improper bandwidth(-b) may waste huge bandwidth and may be suspected of DoS flood.
+2. Use improper bandwidth(-b) may waste huge bandwidth and may be suspected of carrying out DoS flood.
 
 # Known Issues
 

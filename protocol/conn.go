@@ -241,7 +241,7 @@ func (c *Conn) inputAndSend(pk *packet) error {
 	// consider last sleep time error
 	terr := c.tSlot - c.lastSErr - (NowNS() - t0)
 	// rest terr/2 if current time usage less than tslot of 100us.
-	if terr > 1e5 && c.avgTraffic {
+	if terr > 1e5 && c.flatTraffic {
 		t0 = NowNS()
 		time.Sleep(time.Duration(terr >> 2))
 		c.lastSErr = maxI64(NowNS()-t0-terr, 0)

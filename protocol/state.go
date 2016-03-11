@@ -77,7 +77,7 @@ type Conn struct {
 	bandwidth       int64
 	fastRetransmit  bool
 	superRetransmit bool
-	avgTraffic      bool
+	flatTraffic     bool
 	// statistics
 	urgent    int
 	inPkCnt   int
@@ -106,7 +106,7 @@ func NewConn(e *Endpoint, dest *net.UDPAddr, id connId) *Conn {
 	c.bandwidth = p.Bandwidth
 	c.fastRetransmit = p.FastRetransmit
 	c.superRetransmit = p.SuperRetransmit
-	c.avgTraffic = p.AvgTraffic
+	c.flatTraffic = p.FlatTraffic
 	return c
 }
 
