@@ -112,7 +112,7 @@ local# ./suft-nc -l :1234 -r remote:9090
 Notes:
 
 1. The target to be connected shouldn't be behind NAT (or should use port mapping).
-2. Use improper bandwidth(-b) may waste huge bandwidth and may be suspected of carrying out DoS flood.
+2. Use improper bandwidth(-b) may waste huge bandwidth and may be suspected of carrying out flood attack.
 
 # Known Issues
 
