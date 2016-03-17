@@ -111,7 +111,7 @@ Notes:
 # How to test?
 
 ```
-// remote, send 100MB stream in 50mbps(max)
+// remote, send 100MB stream in 50mbps
 remote# dd if=/dev/zero bs=1M count=100 status=none | ./suft-nc -s -l :9090 -b 50 -fr -ft
 
 // local console#1, monitor traffic(for simplicity, we can use bmon)
