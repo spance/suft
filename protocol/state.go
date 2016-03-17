@@ -382,7 +382,7 @@ func (c *Conn) afterCloseW() {
 }
 
 func (c *Conn) afterShutdown() {
-	c.edp.removeConn(c.connId)
+	c.edp.removeConn(c.connId, c.dest)
 	log.Println("shutdown", c.state)
 }
 

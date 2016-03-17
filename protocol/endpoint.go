@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -44,7 +46,8 @@ type Endpoint struct {
 	idSeq      uint32
 	isServ     bool
 	listenChan chan *Conn
-	registry   map[uint32]*Conn
+	lRegistry  map[uint32]*Conn
+	rRegistry  map[string][]uint32
 	mlock      sync.RWMutex
 	timeout    *iTimer
 	params     Params
@@ -56,6 +59,7 @@ func (c *connId) setRid(b []byte) {
 
 func init() {
 	bpool.Init(0, 2000)
+	rand.Seed(NowNS())
 }
 
 func NewEndpoint(p *Params) (*Endpoint, error) {
@@ -72,15 +76,16 @@ func NewEndpoint(p *Params) (*Endpoint, error) {
 		idSeq:      1,
 		isServ:     p.IsServ,
 		listenChan: make(chan *Conn, 1),
-		registry:   make(map[uint32]*Conn),
+		lRegistry:  make(map[uint32]*Conn),
+		rRegistry:  make(map[string][]uint32),
 		timeout:    NewTimer(0),
 		params:     *p,
 	}
 	if e.isServ {
 		e.state = S_EST0
-	} else {
+	} else { // client
 		e.state = S_EST1
-		e.idSeq = 0xff0
+		e.idSeq = uint32(rand.Int31())
 	}
 	e.params.Bandwidth = p.Bandwidth << 20 // mbps to bps
 	e.udpconn.SetReadBuffer(_SO_BUF_SIZE)
@@ -113,7 +118,7 @@ func (e *Endpoint) internal_listen() {
 
 			default: // old connection
 				e.mlock.RLock()
-				conn := e.registry[id.lid]
+				conn := e.lRegistry[id.lid]
 				e.mlock.RUnlock()
 				if conn != nil {
 					e.dispatch(conn, buf)
@@ -145,7 +150,7 @@ func (e *Endpoint) idleProcess() {
 	e.mlock.Lock()
 	defer e.mlock.Unlock()
 	// reset urgent
-	for _, c := range e.registry {
+	for _, c := range e.lRegistry {
 		c.outlock.Lock()
 		if c.outQ.size() == 0 && c.urgent != 0 {
 			c.urgent = 0
@@ -163,7 +168,7 @@ func (e *Endpoint) Dial(addr string) (*Conn, error) {
 	e.idSeq++
 	id := connId{e.idSeq, 0}
 	conn := NewConn(e, rAddr, id)
-	e.registry[id.lid] = conn
+	e.lRegistry[id.lid] = conn
 	e.mlock.Unlock()
 	if atomic.LoadInt32(&e.state) == S_FIN {
 		return nil, io.EOF
@@ -173,11 +178,21 @@ func (e *Endpoint) Dial(addr string) (*Conn, error) {
 }
 
 func (e *Endpoint) acceptNewConn(id connId, addr *net.UDPAddr, buf []byte) {
+	rKey := addr.String()
 	e.mlock.Lock()
+	// map: remoteAddr => remoteConnId
+	// filter duplicated syn packets
+	if newArr := insertRid(e.rRegistry[rKey], id.rid); newArr != nil {
+		e.rRegistry[rKey] = newArr
+	} else {
+		e.mlock.Unlock()
+		log.Println("Warn: duplicated connection", addr)
+		return
+	}
 	e.idSeq++
 	id.lid = e.idSeq
 	conn := NewConn(e, addr, id)
-	e.registry[id.lid] = conn
+	e.lRegistry[id.lid] = conn
 	e.mlock.Unlock()
 	err := conn.initConnection(buf)
 	if err == nil {
@@ -187,14 +202,22 @@ func (e *Endpoint) acceptNewConn(id connId, addr *net.UDPAddr, buf []byte) {
 			log.Println("Warn: no listener")
 		}
 	} else {
-		e.removeConn(id)
-		log.Println("Error: init_connection", err)
+		e.removeConn(id, addr)
+		log.Println("Error: init_connection", addr, err)
 	}
 }
 
-func (e *Endpoint) removeConn(id connId) {
+func (e *Endpoint) removeConn(id connId, addr *net.UDPAddr) {
 	e.mlock.Lock()
-	delete(e.registry, id.lid)
+	delete(e.lRegistry, id.lid)
+	rKey := addr.String()
+	if newArr := deleteRid(e.rRegistry[rKey], id.rid); newArr != nil {
+		if len(newArr) > 0 {
+			e.rRegistry[rKey] = newArr
+		} else {
+			delete(e.rRegistry, rKey)
+		}
+	}
 	e.mlock.Unlock()
 }
 
@@ -203,7 +226,7 @@ func (e *Endpoint) Close() error {
 	state := atomic.LoadInt32(&e.state)
 	if state > 0 && atomic.CompareAndSwapInt32(&e.state, state, S_FIN) {
 		err := e.udpconn.Close()
-		e.registry = make(map[uint32]*Conn)
+		e.lRegistry = make(map[uint32]*Conn)
 		select { // release listeners
 		case e.listenChan <- nil:
 		default:
@@ -270,4 +293,41 @@ func (e *Endpoint) resetPeer(addr *net.UDPAddr, id connId) {
 	pk := &packet{flag: F_FIN | F_RESET}
 	buf := nodeOf(pk).marshall(id)
 	e.udpconn.WriteToUDP(buf, addr)
+}
+
+type u32Slice []uint32
+
+func (p u32Slice) Len() int           { return len(p) }
+func (p u32Slice) Less(i, j int) bool { return p[i] < p[j] }
+func (p u32Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+// if the rid is not existed in array then insert it return new array
+func insertRid(array []uint32, rid uint32) []uint32 {
+	if len(array) > 0 {
+		pos := sort.Search(len(array), func(n int) bool {
+			return array[n] >= rid
+		})
+		if pos < len(array) && array[pos] == rid {
+			return nil
+		}
+	}
+	array = append(array, rid)
+	sort.Sort(u32Slice(array))
+	return array
+}
+
+// if rid was existed in array then delete it return new array
+func deleteRid(array []uint32, rid uint32) []uint32 {
+	if len(array) > 0 {
+		pos := sort.Search(len(array), func(n int) bool {
+			return array[n] >= rid
+		})
+		if pos < len(array) && array[pos] == rid {
+			newArray := make([]uint32, len(array)-1)
+			n := copy(newArray, array[:pos])
+			copy(newArray[n:], array[pos+1:])
+			return newArray
+		}
+	}
+	return nil
 }
