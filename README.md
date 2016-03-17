@@ -31,24 +31,18 @@ conn, err := e.Dial(rAddr string)
 
 # Basic Theories
 
-Sent-count(aka, the count of unique data packets) and lost-count
+scnt(sender: the count of unique data packets) and dups(sender: retransmission counter)
 
 ```
-    lscnt
--------------- = Lose Rate
- scnt + lscnt
+Lose Rate = dups/(scnt + dups)
 
-    lscnt
--------------- = Retransmit Rate
-    scnt
+Retransmit Rate = dups/scnt
 ```
 
 latency, window and traffic speed
 
 ```
-  1000
---------- * mss * win = Speed
- latency
+Speed = (1000 / latency) * mss * win
 ```
 
 # License
@@ -73,7 +67,7 @@ GPL version 3 or any later version
 
 # Tool Usage
 
-Main package include a tool for testing, similar to netcat (nc).
+"suft-nc" package include a tool for testing, similar to netcat (nc).
 
 Build with `go get -u -v github.com/spance/suft/suft-nc`
 
@@ -94,19 +88,19 @@ Examples:
 ```
 // send my_file to remote in 10mbps
 remote# ./suft-nc -l :9090 -s > recv_file
-local# ./suft-nc -l :1234 -r remote:9090 -b 10 -fr < my_file
+local# ./suft-nc -r remote:9090 -b 10 -fr < my_file
 ```
 
 ```
-// recv my_file from remote in 20mbps
-remote# ./suft-nc -l :9090 -s -b 20 -fr < my_file
-local# ./suft-nc -l :1234 -r remote:9090 > recv_file
+// recv my_file from remote in 50mbps
+remote# ./suft-nc -l :9090 -s -b 50 -fr < my_file
+local# ./suft-nc -r remote:9090 > recv_file
 ```
 
 ```
 // simple chat room
 remote# ./suft-nc -l :9090 -s
-local# ./suft-nc -l :1234 -r remote:9090
+local# ./suft-nc -r remote:9090
 ```
 
 Notes:
@@ -114,16 +108,14 @@ Notes:
 1. The target to be connected shouldn't be behind NAT (or should use port mapping).
 2. Use improper bandwidth(-b) may waste huge bandwidth and may be suspected of carrying out flood attack.
 
-# Known Issues
+# How to test?
 
-1. Numbers
+```
+// remote, send 100MB stream in 50mbps(max)
+remote# dd if=/dev/zero bs=1M count=100 status=none | ./suft-nc -s -l :9090 -b 50 -fr -ft
 
-   seq, ack... use uint32, that means one connection cannot transmit more than 4G packets (bytes ∈ [4GB, 5.6TB]).
-
-2. Detecting channel capacity
-
-   To do or NOT ?
-
-3. Test
-
-   Needs a lot of testing under real-world scenes. Welcome to share your test results.
+// local console#1, monitor traffic(for simplicity, we can use bmon)
+local# bmon -p eth0
+// local console#2, recv stream
+local# ./suft-nc -r remote:9090 > /dev/null
+```
