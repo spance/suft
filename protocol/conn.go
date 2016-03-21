@@ -661,7 +661,7 @@ func (c *Conn) Read(buf []byte) (nr int, err error) {
 func (c *Conn) Write(data []byte) (nr int, err error) {
 	for len(data) > 0 && err == nil {
 		//buf := make([]byte, MSS+AH_SIZE)
-		buf := bpool.Get(MSS + AH_SIZE)
+		buf := bpool.Get(c.mss + AH_SIZE)
 		body := buf[TH_SIZE+CH_SIZE:]
 		n := copy(body, data)
 		nr += n

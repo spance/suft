@@ -78,6 +78,7 @@ type Conn struct {
 	fastRetransmit  bool
 	superRetransmit bool
 	flatTraffic     bool
+	mss             int
 	// statistics
 	urgent    int
 	inPkCnt   int
@@ -107,6 +108,11 @@ func NewConn(e *Endpoint, dest *net.UDPAddr, id connId) *Conn {
 	c.fastRetransmit = p.FastRetransmit
 	c.superRetransmit = p.SuperRetransmit
 	c.flatTraffic = p.FlatTraffic
+	c.mss = MSS
+	if dest.IP.To4() == nil {
+		// typical ipv6 header length=40
+		c.mss -= 20
+	}
 	return c
 }
 
