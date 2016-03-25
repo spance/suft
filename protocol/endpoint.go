@@ -78,7 +78,7 @@ func NewEndpoint(p *Params) (*Endpoint, error) {
 		listenChan: make(chan *Conn, 1),
 		lRegistry:  make(map[uint32]*Conn),
 		rRegistry:  make(map[string][]uint32),
-		timeout:    NewTimer(0),
+		timeout:    newTimer(0),
 		params:     *p,
 	}
 	if e.isServ {

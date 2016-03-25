@@ -100,8 +100,8 @@ func NewConn(e *Endpoint, dest *net.UDPAddr, id connId) *Conn {
 		evSend:  make(chan byte, 4),
 		evAck:   make(chan byte, 1),
 		evClose: make(chan byte, 2),
-		outQ:    NewLinkedMap(_QModeOut),
-		inQ:     NewLinkedMap(_QModeIn),
+		outQ:    newLinkedMap(_QModeOut),
+		inQ:     newLinkedMap(_QModeIn),
 	}
 	p := e.params
 	c.bandwidth = p.Bandwidth

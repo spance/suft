@@ -10,8 +10,8 @@ var conn *Conn
 
 func init() {
 	conn = &Conn{
-		outQ: NewLinkedMap(_QModeOut),
-		inQ:  NewLinkedMap(_QModeIn),
+		outQ: newLinkedMap(_QModeOut),
+		inQ:  newLinkedMap(_QModeIn),
 	}
 }
 

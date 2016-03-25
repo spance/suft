@@ -31,7 +31,7 @@ func NowNS() int64 {
 	return s*1e9 + int64(n)
 }
 
-func NewTimer(d int64) *iTimer {
+func newTimer(d int64) *iTimer {
 	t := iTimer{
 		C: make(chan byte, 1),
 		r: runtimeTimer{

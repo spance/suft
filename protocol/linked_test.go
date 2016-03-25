@@ -9,7 +9,7 @@ import (
 var lmap *linkedMap
 
 func init() {
-	lmap = NewLinkedMap(_QModeIn)
+	lmap = newLinkedMap(_QModeIn)
 }
 
 func node(seq int) *qNode {

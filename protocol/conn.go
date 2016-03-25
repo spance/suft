@@ -78,7 +78,7 @@ func (c *Conn) internalRecvLoop() {
 }
 
 func (c *Conn) internalSendLoop() {
-	var timer = NewTimer(c.rtt)
+	var timer = newTimer(c.rtt)
 	for {
 		select {
 		case v := <-c.evSWnd:
@@ -120,7 +120,7 @@ func (c *Conn) internalSendLoop() {
 }
 
 func (c *Conn) internalAckLoop() {
-	var ackTimer = NewTimer(c.ato)
+	var ackTimer = newTimer(c.ato)
 	var lastAckState byte
 	for {
 		var v byte

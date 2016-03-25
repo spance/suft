@@ -22,7 +22,7 @@ const (
 	_QModeOut = 2
 )
 
-func NewLinkedMap(qmode int) *linkedMap {
+func newLinkedMap(qmode int) *linkedMap {
 	return &linkedMap{
 		qmap: make(map[uint32]*qNode),
 		mode: qmode,
