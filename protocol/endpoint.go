@@ -54,7 +54,7 @@ type Endpoint struct {
 }
 
 func (c *connId) setRid(b []byte) {
-	c.rid = binary.BigEndian.Uint32(b[MAGIC_SIZE+6:])
+	c.rid = binary.BigEndian.Uint32(b[_MAGIC_SIZE+6:])
 }
 
 func init() {
@@ -82,9 +82,9 @@ func NewEndpoint(p *Params) (*Endpoint, error) {
 		params:     *p,
 	}
 	if e.isServ {
-		e.state = S_EST0
+		e.state = _S_EST0
 	} else { // client
-		e.state = S_EST1
+		e.state = _S_EST1
 		e.idSeq = uint32(rand.Int31())
 	}
 	e.params.Bandwidth = p.Bandwidth << 20 // mbps to bps
@@ -101,7 +101,7 @@ func (e *Endpoint) internal_listen() {
 		var buf = bpool.Get(1600)
 		net_pollSetDeadline(pdCtx, rtmo+runtimeNano(), 'r')
 		n, addr, err := e.udpconn.ReadFromUDP(buf)
-		if err == nil && n >= AH_SIZE {
+		if err == nil && n >= _AH_SIZE {
 			var id = e.getConnId(buf)
 			buf = buf[:n]
 
@@ -135,7 +135,7 @@ func (e *Endpoint) internal_listen() {
 				continue
 			}
 			// other errors
-			if atomic.LoadInt32(&e.state) == S_FIN {
+			if atomic.LoadInt32(&e.state) == _S_FIN {
 				return
 			} else {
 				log.Println("Error: read sock", err)
@@ -170,7 +170,7 @@ func (e *Endpoint) Dial(addr string) (*Conn, error) {
 	conn := NewConn(e, rAddr, id)
 	e.lRegistry[id.lid] = conn
 	e.mlock.Unlock()
-	if atomic.LoadInt32(&e.state) == S_FIN {
+	if atomic.LoadInt32(&e.state) == _S_FIN {
 		return nil, io.EOF
 	}
 	err = conn.initConnection(nil)
@@ -224,7 +224,7 @@ func (e *Endpoint) removeConn(id connId, addr *net.UDPAddr) {
 // net.Listener
 func (e *Endpoint) Close() error {
 	state := atomic.LoadInt32(&e.state)
-	if state > 0 && atomic.CompareAndSwapInt32(&e.state, state, S_FIN) {
+	if state > 0 && atomic.CompareAndSwapInt32(&e.state, state, _S_FIN) {
 		err := e.udpconn.Close()
 		e.lRegistry = make(map[uint32]*Conn)
 		select { // release listeners
@@ -243,7 +243,7 @@ func (e *Endpoint) Addr() net.Addr {
 
 // net.Listener
 func (e *Endpoint) Accept() (net.Conn, error) {
-	if atomic.LoadInt32(&e.state) == S_EST0 {
+	if atomic.LoadInt32(&e.state) == _S_EST0 {
 		return <-e.listenChan, nil
 	} else {
 		return nil, io.EOF
@@ -251,7 +251,7 @@ func (e *Endpoint) Accept() (net.Conn, error) {
 }
 
 func (e *Endpoint) Listen() *Conn {
-	if atomic.LoadInt32(&e.state) == S_EST0 {
+	if atomic.LoadInt32(&e.state) == _S_EST0 {
 		return <-e.listenChan
 	} else {
 		return nil
@@ -263,7 +263,7 @@ func (e *Endpoint) ListenTimeout(tmo int64) *Conn {
 	if tmo <= 0 {
 		return e.Listen()
 	}
-	if atomic.LoadInt32(&e.state) == S_EST0 {
+	if atomic.LoadInt32(&e.state) == _S_EST0 {
 		select {
 		case c := <-e.listenChan:
 			return c
@@ -276,7 +276,7 @@ func (e *Endpoint) ListenTimeout(tmo int64) *Conn {
 func (e *Endpoint) getConnId(buf []byte) connId {
 	// TODO determine magic header
 	// magic := binary.BigEndian.Uint64(buf)
-	id := binary.BigEndian.Uint64(buf[MAGIC_SIZE+2:])
+	id := binary.BigEndian.Uint64(buf[_MAGIC_SIZE+2:])
 	return connId{uint32(id >> 32), uint32(id)}
 }
 
@@ -290,7 +290,7 @@ func (e *Endpoint) dispatch(c *Conn, buf []byte) {
 }
 
 func (e *Endpoint) resetPeer(addr *net.UDPAddr, id connId) {
-	pk := &packet{flag: F_FIN | F_RESET}
+	pk := &packet{flag: _F_FIN | _F_RESET}
 	buf := nodeOf(pk).marshall(id)
 	e.udpconn.WriteToUDP(buf, addr)
 }

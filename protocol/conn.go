@@ -10,26 +10,26 @@ import (
 )
 
 const (
-	MAX_RETRIES = 6
-	MIN_RTT     = 8
-	MIN_RTO     = 30
-	MIN_ATO     = 2
-	MAX_ATO     = 10
-	MIN_SWND    = 10
-	MAX_SWND    = 960
+	_MAX_RETRIES = 6
+	_MIN_RTT     = 8
+	_MIN_RTO     = 30
+	_MIN_ATO     = 2
+	_MAX_ATO     = 10
+	_MIN_SWND    = 10
+	_MAX_SWND    = 960
 )
 
 const (
-	VACK_SCHED = iota + 1
-	VACK_QUICK
-	VACK_MUST
-	VSWND_ACTIVE
-	VRETR_IMMED
+	_VACK_SCHED = iota + 1
+	_VACK_QUICK
+	_VACK_MUST
+	_VSWND_ACTIVE
+	_VRETR_IMMED
 )
 
 const (
-	RETR_REST = -1
-	_CLOSE    = 0xff
+	_RETR_REST = -1
+	_CLOSE     = 0xff
 )
 
 var debug int
@@ -49,7 +49,7 @@ func (c *Conn) internalRecvLoop() {
 		select {
 		case buf = <-c.evRecv:
 			if buf != nil {
-				body = buf[TH_SIZE:]
+				body = buf[_TH_SIZE:]
 			} else { // shutdown
 				return
 			}
@@ -58,17 +58,17 @@ func (c *Conn) internalRecvLoop() {
 		// keep the original buffer, so we could recycle it in future
 		pk.buffer = buf
 		unmarshall(pk, body)
-		if pk.flag&F_SACK != 0 {
+		if pk.flag&_F_SACK != 0 {
 			c.processSAck(pk)
 			continue
 		}
-		if pk.flag&F_ACK != 0 {
+		if pk.flag&_F_ACK != 0 {
 			c.processAck(pk)
 		}
-		if pk.flag&F_DATA != 0 {
+		if pk.flag&_F_DATA != 0 {
 			c.insertData(pk)
-		} else if pk.flag&F_FIN != 0 {
-			if pk.flag&F_RESET != 0 {
+		} else if pk.flag&_F_FIN != 0 {
+			if pk.flag&_F_RESET != 0 {
 				go c.forceShutdownWithLock()
 			} else {
 				go c.closeR(pk)
@@ -83,11 +83,11 @@ func (c *Conn) internalSendLoop() {
 		select {
 		case v := <-c.evSWnd:
 			switch v {
-			case VRETR_IMMED:
+			case _VRETR_IMMED:
 				c.outlock.Lock()
 				c.retransmit2()
 				c.outlock.Unlock()
-			case VSWND_ACTIVE:
+			case _VSWND_ACTIVE:
 				timer.TryActive(c.rtt)
 			case _CLOSE:
 				return
@@ -97,7 +97,7 @@ func (c *Conn) internalSendLoop() {
 			c.outlock.Lock()
 			rest, _ := c.retransmit()
 			switch rest {
-			case RETR_REST, 0: // nothing to send
+			case _RETR_REST, 0: // nothing to send
 				if c.outQ.size() > 0 {
 					timer.Reset(c.rtt)
 				} else {
@@ -127,7 +127,7 @@ func (c *Conn) internalAckLoop() {
 		select {
 		case <-ackTimer.C:
 			// may cause sending duplicated ack if ato>rtt
-			v = VACK_QUICK
+			v = _VACK_QUICK
 		case v = <-c.evAck:
 			ackTimer.TryActive(c.ato)
 			if lastAckState != v {
@@ -135,7 +135,7 @@ func (c *Conn) internalAckLoop() {
 					return
 				}
 				lastAckState = v
-				v = VACK_MUST
+				v = _VACK_MUST
 			}
 		}
 		c.inlock.Lock()
@@ -150,7 +150,7 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 	var now, rto = Now(), c.rto
 	var limit = c.cwnd
 	for item := c.outQ.head; item != nil && limit > 0; item = item.next {
-		if item.scnt != SENT_OK { // ACKed has scnt==-1
+		if item.scnt != _SENT_OK { // ACKed has scnt==-1
 			diff := now - item.sent
 			if diff > rto { // already rto
 				c.internalWrite(item)
@@ -182,14 +182,14 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 	if c.outQ.size() > 0 {
 		return
 	}
-	return RETR_REST, 0
+	return _RETR_REST, 0
 }
 
 func (c *Conn) retransmit2() (count int32) {
 	var fRtt = c.rtt + maxI64(c.rtt>>4, 1)
 	var limit, now = minI32(c.outPending>>4, 8), Now()
 	for item := c.outQ.head; item != nil && count < limit; item = item.next {
-		if item.scnt != SENT_OK { // ACKed has scnt==-1
+		if item.scnt != _SENT_OK { // ACKed has scnt==-1
 			if item.miss >= 3 && now-item.sent >= fRtt {
 				item.miss = 0
 				c.internalWrite(item)
@@ -236,7 +236,7 @@ func (c *Conn) inputAndSend(pk *packet) error {
 	c.internalWrite(item)
 	c.outlock.Unlock()
 	// active resending timer, must blocking
-	c.evSWnd <- VSWND_ACTIVE
+	c.evSWnd <- _VSWND_ACTIVE
 	// calculate time error bewteen tslot with actual usage.
 	// consider last sleep time error
 	terr := c.tSlot - c.lastSErr - (NowNS() - t0)
@@ -254,7 +254,7 @@ func (c *Conn) inputAndSend(pk *packet) error {
 func (c *Conn) internalWrite(item *qNode) {
 	if item.scnt >= 20 {
 		// no exception of sending fin
-		if item.flag&F_FIN != 0 {
+		if item.flag&_F_FIN != 0 {
 			c.fakeShutdown()
 			c.dest = nil
 			return
@@ -275,10 +275,10 @@ func (c *Conn) internalWrite(item *qNode) {
 	buf := item.marshall(c.connId)
 	if debug >= 3 {
 		var pkType = packetTypeNames[item.flag]
-		if item.flag&F_SACK != 0 {
-			log.Printf("send %s trp=%d on=%d %x", pkType, item.seq, item.ack, buf[AH_SIZE+4:])
+		if item.flag&_F_SACK != 0 {
+			log.Printf("send %s trp=%d on=%d %x", pkType, item.seq, item.ack, buf[_AH_SIZE+4:])
 		} else {
-			log.Printf("send %s seq=%d ack=%d scnt=%d len=%d", pkType, item.seq, item.ack, item.scnt, len(buf)-TH_SIZE)
+			log.Printf("send %s seq=%d ack=%d scnt=%d len=%d", pkType, item.seq, item.ack, item.scnt, len(buf)-_TH_SIZE)
 		}
 	}
 	c.sock.WriteToUDP(buf, c.dest)
@@ -297,14 +297,14 @@ func (c *Conn) makeLastAck() (pk *packet) {
 	}
 	pk = &packet{
 		ack:  maxU32(c.lastAck, c.inMaxCtnSeq),
-		flag: F_ACK,
+		flag: _F_ACK,
 	}
 	c.logAck(pk.ack)
 	return
 }
 
 func (c *Conn) makeAck(demand byte) (pk *packet) {
-	if demand < VACK_MUST && Now()-c.lastAckTime < c.ato {
+	if demand < _VACK_MUST && Now()-c.lastAckTime < c.ato {
 		return
 	}
 	//	    ready Q <-|
@@ -323,7 +323,7 @@ func (c *Conn) makeAck(demand byte) (pk *packet) {
 	buf := make([]byte, len(bmap)*8+4)
 	pk = &packet{
 		ack:     predecessor + 1,
-		flag:    F_SACK,
+		flag:    _F_SACK,
 		payload: buf,
 	}
 	if fakeSAck {
@@ -335,7 +335,7 @@ func (c *Conn) makeAck(demand byte) (pk *packet) {
 		delayed := Now() - trp.sent
 		if delayed < c.rtt {
 			pk.seq = trp.seq
-			pk.flag |= F_TIME
+			pk.flag |= _F_TIME
 			buf[1] = trp.scnt
 			if delayed <= 0 {
 				delayed = 1
@@ -368,15 +368,15 @@ func unmarshallSAck(data []byte) (bmap []uint64, tbl uint32, delayed uint16, scn
 }
 
 func calSwnd(bandwidth, rtt int64) int32 {
-	w := int32(bandwidth * rtt / (8000 * MSS))
-	if w <= MAX_SWND {
-		if w >= MIN_SWND {
+	w := int32(bandwidth * rtt / (8000 * _MSS))
+	if w <= _MAX_SWND {
+		if w >= _MIN_SWND {
 			return w
 		} else {
-			return MIN_SWND
+			return _MIN_SWND
 		}
 	} else {
-		return MAX_SWND
+		return _MAX_SWND
 	}
 }
 
@@ -408,18 +408,18 @@ func (c *Conn) measure(seq uint32, delayed int64, scnt uint8) {
 		err := rtt - (c.srtt >> 3)
 		c.srtt += err
 		c.rtt = c.srtt >> 3
-		if c.rtt < MIN_RTT {
-			c.rtt = MIN_RTT
+		if c.rtt < _MIN_RTT {
+			c.rtt = _MIN_RTT
 		}
 		// s-swnd: update 1/4
 		swnd := c.swnd<<3 - c.swnd + calSwnd(c.bandwidth, c.rtt)
 		c.swnd = swnd >> 3
 		c.tSlot = c.rtt * 1e6 / int64(c.swnd)
 		c.ato = c.rtt >> 4
-		if c.ato < MIN_ATO {
-			c.ato = MIN_ATO
-		} else if c.ato > MAX_ATO {
-			c.ato = MAX_ATO
+		if c.ato < _MIN_ATO {
+			c.ato = _MIN_ATO
+		} else if c.ato > _MAX_ATO {
+			c.ato = _MAX_ATO
 		}
 		if err < 0 {
 			err = -err
@@ -438,8 +438,8 @@ func (c *Conn) measure(seq uint32, delayed int64, scnt uint8) {
 		} else {
 			c.rto = (c.rto + rto) >> 1
 		}
-		if c.rto < MIN_RTO {
-			c.rto = MIN_RTO
+		if c.rto < _MIN_RTO {
+			c.rto = _MIN_RTO
 		}
 		if debug >= 1 {
 			log.Printf("--- rtt=%d srtt=%d rto=%d swnd=%d", c.rtt, c.srtt, c.rto, c.swnd)
@@ -453,7 +453,7 @@ func (c *Conn) processSAck(pk *packet) {
 	if bmap == nil { // bad packet
 		return
 	}
-	if pk.flag&F_TIME != 0 {
+	if pk.flag&_F_TIME != 0 {
 		c.measure(pk.seq, int64(delayed), scnt)
 	}
 	deleted, missed, continuous := c.outQ.deleteByBitmap(bmap, pk.ack, tbl)
@@ -466,10 +466,10 @@ func (c *Conn) processSAck(pk *packet) {
 	if c.fastRetransmit && !continuous {
 		// peer Q is uncontinuous, then trigger FR
 		if deleted == 0 {
-			c.evSWnd <- VRETR_IMMED
+			c.evSWnd <- _VRETR_IMMED
 		} else {
 			select {
-			case c.evSWnd <- VRETR_IMMED:
+			case c.evSWnd <- _VRETR_IMMED:
 			default:
 			}
 		}
@@ -491,7 +491,7 @@ func (c *Conn) processAck(pk *packet) {
 		// special case: ack the FIN
 		if pk.seq == _FIN_ACK_SEQ {
 			select {
-			case c.evClose <- S_FIN0:
+			case c.evClose <- _S_FIN0:
 			default:
 			}
 		}
@@ -499,7 +499,7 @@ func (c *Conn) processAck(pk *packet) {
 		if debug >= 2 {
 			log.Printf("ACK miss on=%d", pk.ack)
 		}
-		if pk.flag&F_SYN != 0 { // No.3 Ack lost
+		if pk.flag&_F_SYN != 0 { // No.3 Ack lost
 			if pkAck := c.makeLastAck(); pkAck != nil {
 				c.internalWrite(nodeOf(pkAck))
 			}
@@ -547,7 +547,7 @@ func (c *Conn) insertData(pk *packet) {
 	if exists || pk.seq <= c.inMaxCtnSeq {
 		// then send ACK for dups
 		select {
-		case c.evAck <- VACK_MUST:
+		case c.evAck <- _VACK_MUST:
 		default:
 		}
 		if debug >= 2 {
@@ -562,7 +562,7 @@ func (c *Conn) insertData(pk *packet) {
 	if debug >= 3 {
 		log.Printf("\t\t\trecv DATA seq=%d dis=%d lastReadSeq=%d", item.seq, dis, c.lastReadSeq)
 	}
-	var ackState byte = VACK_MUST
+	var ackState byte = _VACK_MUST
 	var available bool
 	switch dis {
 	case 0:
@@ -582,7 +582,7 @@ func (c *Conn) insertData(pk *packet) {
 		} else {
 			// here is an ideal situation
 			c.inMaxCtnSeq, available = pk.seq, true
-			ackState = VACK_QUICK
+			ackState = _VACK_QUICK
 		}
 
 	default: // there is an unordered packet, hole occurred here.
@@ -660,13 +660,13 @@ func (c *Conn) Read(buf []byte) (nr int, err error) {
 // should not call this function concurrently.
 func (c *Conn) Write(data []byte) (nr int, err error) {
 	for len(data) > 0 && err == nil {
-		//buf := make([]byte, MSS+AH_SIZE)
-		buf := bpool.Get(c.mss + AH_SIZE)
-		body := buf[TH_SIZE+CH_SIZE:]
+		//buf := make([]byte, _MSS+_AH_SIZE)
+		buf := bpool.Get(c.mss + _AH_SIZE)
+		body := buf[_TH_SIZE+_CH_SIZE:]
 		n := copy(body, data)
 		nr += n
 		data = data[n:]
-		pk := &packet{flag: F_DATA, payload: body[:n], buffer: buf[:AH_SIZE+n]}
+		pk := &packet{flag: _F_DATA, payload: body[:n], buffer: buf[:_AH_SIZE+n]}
 		err = c.inputAndSend(pk)
 	}
 	return

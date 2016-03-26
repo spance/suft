@@ -96,7 +96,7 @@ func (l *linkedMap) deleteAt(n *qNode) {
 func (l *linkedMap) deleteBefore(n *qNode) (left *qNode, deleted int32) {
 	for i := n; i != nil; i = i.prev {
 		delete(l.qmap, i.seq)
-		if i.scnt != SENT_OK {
+		if i.scnt != _SENT_OK {
 			deleted++
 			// only outQ could delete at here
 			if l.mode == _QModeOut {
@@ -203,8 +203,8 @@ func (q *qNode) forward(n int) *qNode {
 }
 
 const (
-	MAX_U64 uint64 = 0xffFFffFFffFFffFF
-	MAX_I64 int64  = 0x7fFFffFFffFFffFF
+	_MAX_U64 uint64 = 0xffFFffFFffFFffFF
+	_MAX_I64 int64  = 0x7fFFffFFffFFffFF
 )
 
 // prev of bitmap start point
@@ -292,12 +292,12 @@ func (l *linkedMap) deleteByBitmap(bmap []uint64, from uint32, tailBitsLen uint3
 			if lastContinued {
 				maxContinued = i
 			}
-			if i.scnt != SENT_OK {
+			if i.scnt != _SENT_OK {
 				// no mark means first deleting
 				deleted++
 			}
 			// don't delete, just mark it
-			i.scnt = SENT_OK
+			i.scnt = _SENT_OK
 		} else {
 			// known it may be lost
 			if i.miss == 0 {

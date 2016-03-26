@@ -108,7 +108,7 @@ func NewConn(e *Endpoint, dest *net.UDPAddr, id connId) *Conn {
 	c.fastRetransmit = p.FastRetransmit
 	c.superRetransmit = p.SuperRetransmit
 	c.flatTraffic = p.FlatTraffic
-	c.mss = MSS
+	c.mss = _MSS
 	if dest.IP.To4() == nil {
 		// typical ipv6 header length=40
 		c.mss -= 20
@@ -120,20 +120,20 @@ func (c *Conn) initConnection(buf []byte) (err error) {
 	if buf == nil {
 		err = c.initDialing()
 	} else { //server
-		err = c.acceptConnection(buf[TH_SIZE:])
+		err = c.acceptConnection(buf[_TH_SIZE:])
 	}
 	if err != nil {
 		return
 	}
-	if c.state == S_EST1 {
+	if c.state == _S_EST1 {
 		c.lastReadSeq = c.lastAck
 		c.inMaxCtnSeq = c.lastAck
-		c.rtt = maxI64(c.rtt, MIN_RTT)
+		c.rtt = maxI64(c.rtt, _MIN_RTT)
 		c.mdev = c.rtt << 1
 		c.srtt = c.rtt << 3
-		c.rto = maxI64(c.rtt*2, MIN_RTO)
-		c.ato = maxI64(c.rtt>>4, MIN_ATO)
-		c.ato = minI64(c.ato, MAX_ATO)
+		c.rto = maxI64(c.rtt*2, _MIN_RTO)
+		c.ato = maxI64(c.rtt>>4, _MIN_ATO)
+		c.ato = minI64(c.ato, _MAX_ATO)
 		// initial cwnd
 		c.swnd = calSwnd(c.bandwidth, c.rtt) >> 1
 		c.cwnd = 8
@@ -153,47 +153,47 @@ func (c *Conn) initDialing() error {
 	// first syn
 	pk := &packet{
 		seq:  c.mySeq,
-		flag: F_SYN,
+		flag: _F_SYN,
 	}
 	item := nodeOf(pk)
 	var buf []byte
-	c.state = S_SYN0
+	c.state = _S_SYN0
 	t0 := Now()
-	for i := 0; i < MAX_RETRIES && c.state == S_SYN0; i++ {
+	for i := 0; i < _MAX_RETRIES && c.state == _S_SYN0; i++ {
 		// send syn
 		c.internalWrite(item)
 		select {
 		case buf = <-c.evRecv:
 			c.rtt = Now() - t0
-			c.state = S_SYN1
+			c.state = _S_SYN1
 			c.connId.setRid(buf)
-			buf = buf[TH_SIZE:]
+			buf = buf[_TH_SIZE:]
 		case <-time.After(time.Second):
 			continue
 		}
 	}
-	if c.state == S_SYN0 {
+	if c.state == _S_SYN0 {
 		return ErrTooManyAttempts
 	}
 
 	unmarshall(pk, buf)
 	// expected syn+ack
-	if pk.flag == F_SYN|F_ACK && pk.ack == c.mySeq {
+	if pk.flag == _F_SYN|_F_ACK && pk.ack == c.mySeq {
 		if scnt := pk.scnt - 1; scnt > 0 {
 			c.rtt -= int64(scnt) * 1e3
 		}
 		log.Println("rtt", c.rtt)
-		c.state = S_EST0
+		c.state = _S_EST0
 		// build ack3
 		pk.scnt = 0
 		pk.ack = pk.seq
-		pk.flag = F_ACK
+		pk.flag = _F_ACK
 		item := nodeOf(pk)
 		// send ack3
 		c.internalWrite(item)
 		// update lastAck
 		c.logAck(pk.ack)
-		c.state = S_EST1
+		c.state = _S_EST1
 		return nil
 	} else {
 		return ErrInexplicableData
@@ -205,12 +205,12 @@ func (c *Conn) acceptConnection(buf []byte) error {
 	var item *qNode
 	unmarshall(pk, buf)
 	// expected syn
-	if pk.flag == F_SYN {
-		c.state = S_SYN1
+	if pk.flag == _F_SYN {
+		c.state = _S_SYN1
 		// build syn+ack
 		pk.ack = pk.seq
 		pk.seq = c.mySeq
-		pk.flag |= F_ACK
+		pk.flag |= _F_ACK
 		// update lastAck
 		c.logAck(pk.ack)
 		item = nodeOf(pk)
@@ -219,36 +219,36 @@ func (c *Conn) acceptConnection(buf []byte) error {
 		dumpb("Syn1 ?", buf)
 		return ErrInexplicableData
 	}
-	for i := 0; i < 5 && c.state == S_SYN1; i++ {
+	for i := 0; i < 5 && c.state == _S_SYN1; i++ {
 		t0 := Now()
 		// reply syn+ack
 		c.internalWrite(item)
 		// recv ack3
 		select {
 		case buf = <-c.evRecv:
-			c.state = S_EST0
+			c.state = _S_EST0
 			c.rtt = Now() - t0
-			buf = buf[TH_SIZE:]
+			buf = buf[_TH_SIZE:]
 			log.Println("rtt", c.rtt)
 		case <-time.After(time.Second):
 			continue
 		}
 	}
-	if c.state == S_SYN1 {
+	if c.state == _S_SYN1 {
 		return ErrTooManyAttempts
 	}
 
 	pk = new(packet)
 	unmarshall(pk, buf)
 	// expected ack3
-	if pk.flag == F_ACK && pk.ack == c.mySeq {
-		c.state = S_EST1
+	if pk.flag == _F_ACK && pk.ack == c.mySeq {
+		c.state = _S_EST1
 	} else {
 		// if ack3 lost, resend syn+ack 3-times
 		// and drop these coming data
-		if pk.flag&F_DATA != 0 && pk.seq > c.lastAck {
+		if pk.flag&_F_DATA != 0 && pk.seq > c.lastAck {
 			c.internalWrite(item)
-			c.state = S_EST1
+			c.state = _S_EST1
 		} else {
 			dumpb("Ack3 ?", buf)
 			return ErrInexplicableData
@@ -259,8 +259,8 @@ func (c *Conn) acceptConnection(buf []byte) error {
 
 // 10,10,10, 100,100,100, 100,100,100, 1s,1s,1s
 func selfSpinWait(fn func() bool) error {
-	const MAX_SPIN = 12
-	for i := 0; i < MAX_SPIN; i++ {
+	const _MAX_SPIN = 12
+	for i := 0; i < _MAX_SPIN; i++ {
 		if fn() {
 			return nil
 		} else if i <= 3 {
@@ -287,9 +287,9 @@ passive close:
 	if outQ empty, send ack{fin-W} then goto closeW().
 */
 func (c *Conn) Close() (err error) {
-	if !atomic.CompareAndSwapInt32(&c.state, S_EST1, S_FIN0) {
+	if !atomic.CompareAndSwapInt32(&c.state, _S_EST1, _S_FIN0) {
 		return selfSpinWait(func() bool {
-			return atomic.LoadInt32(&c.state) == S_FIN
+			return atomic.LoadInt32(&c.state) == _S_FIN
 		})
 	}
 	var err0 error
@@ -298,7 +298,7 @@ func (c *Conn) Close() (err error) {
 	err = selfSpinWait(func() bool {
 		select {
 		case v := <-c.evClose:
-			if v == S_FIN {
+			if v == _S_FIN {
 				return true
 			} else {
 				time.AfterFunc(_100ms, func() { c.evClose <- v })
@@ -336,12 +336,12 @@ func (c *Conn) beforeCloseW() (err error) {
 	c.outlock.Lock()
 	c.mySeq++
 	c.outPending++
-	pk := &packet{seq: c.mySeq, flag: F_FIN}
+	pk := &packet{seq: c.mySeq, flag: _F_FIN}
 	item := nodeOf(pk)
 	c.outQ.appendTail(item)
 	c.internalWrite(item)
 	c.outlock.Unlock()
-	c.evSWnd <- VSWND_ACTIVE
+	c.evSWnd <- _VSWND_ACTIVE
 	return
 }
 
@@ -359,7 +359,7 @@ func (c *Conn) closeW() (err error) {
 	for i := 0; i < max && (atomic.LoadInt32(&c.outPending) > 0 || !closed); i++ {
 		select {
 		case v := <-c.evClose:
-			if v == S_FIN0 {
+			if v == _S_FIN0 {
 				// namely, last fin has been acked.
 				closed = true
 			} else {
@@ -400,7 +400,7 @@ func (c *Conn) forceShutdownWithLock() {
 
 // drop outQ and force shutdown
 func (c *Conn) forceShutdown() {
-	if atomic.CompareAndSwapInt32(&c.state, S_EST1, S_FIN) {
+	if atomic.CompareAndSwapInt32(&c.state, _S_EST1, _S_FIN) {
 		// stop sender
 		//--------------outlock scope
 		for i := 0; i < cap(c.evSend); i++ {
@@ -427,7 +427,7 @@ func (c *Conn) forceShutdown() {
 
 func (c *Conn) fakeShutdown() {
 	select {
-	case c.evClose <- S_FIN0:
+	case c.evClose <- _S_FIN0:
 	default:
 	}
 }
@@ -436,16 +436,16 @@ func (c *Conn) closeR(pk *packet) {
 	var passive = true
 	for {
 		switch state := atomic.LoadInt32(&c.state); state {
-		case S_FIN:
+		case _S_FIN:
 			return
-		case S_FIN1: // multiple FIN, maybe lost
+		case _S_FIN1: // multiple FIN, maybe lost
 			c.passiveCloseReply(pk, false)
 			return
-		case S_FIN0: // active close preformed
+		case _S_FIN0: // active close preformed
 			passive = false
 			fallthrough
 		default:
-			if !atomic.CompareAndSwapInt32(&c.state, state, S_FIN1) {
+			if !atomic.CompareAndSwapInt32(&c.state, state, _S_FIN1) {
 				continue
 			}
 			c.passiveCloseReply(pk, true)
@@ -460,7 +460,7 @@ func (c *Conn) closeR(pk *packet) {
 		c.closeW()
 	}
 	// here, R,W both were closed.
-	c.state = S_FIN
+	c.state = _S_FIN
 	// no need for recv then stop internalAckLoop
 	c.evAck <- _CLOSE
 	if passive {
@@ -468,20 +468,20 @@ func (c *Conn) closeR(pk *packet) {
 	} else {
 		// notify active close thread
 		select {
-		case c.evClose <- S_FIN:
+		case c.evClose <- _S_FIN:
 		default:
 		}
 	}
 }
 
 func (c *Conn) passiveCloseReply(pk *packet, first bool) {
-	if pk != nil && pk.flag&F_FIN != 0 {
+	if pk != nil && pk.flag&_F_FIN != 0 {
 		if first {
 			c.checkInQ(pk)
 			close(c.evRead)
 		}
 		// ack the FIN
-		pk = &packet{seq: _FIN_ACK_SEQ, ack: pk.seq, flag: F_ACK}
+		pk = &packet{seq: _FIN_ACK_SEQ, ack: pk.seq, flag: _F_ACK}
 		item := nodeOf(pk)
 		c.internalWrite(item)
 	}
