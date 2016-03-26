@@ -202,11 +202,6 @@ func (q *qNode) forward(n int) *qNode {
 	return q
 }
 
-const (
-	_MAX_U64 uint64 = 0xffFFffFFffFFffFF
-	_MAX_I64 int64  = 0x7fFFffFFffFFffFF
-)
-
 // prev of bitmap start point
 func (l *linkedMap) makeHolesBitmap(prev uint32) ([]uint64, uint32) {
 	var start *qNode
