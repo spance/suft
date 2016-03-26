@@ -170,7 +170,7 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 	if count > 0 {
 		// shrink cwnd to 1/2 if RTO 1/8 cwnd in FR or if RTO 1/4 cwnd in non-FR
 		shrcond := (c.fastRetransmit && count > c.cwnd>>3) || (!c.fastRetransmit && count > c.cwnd>>2)
-		if shrcond && now-c.lastShrink > c.rto && !c.superRetransmit {
+		if shrcond && now-c.lastShrink > c.rto {
 			log.Printf("shrink cwnd from=%d to=%d s/2=%d", c.cwnd, c.cwnd>>1, c.swnd>>1)
 			c.lastShrink = now
 			// ensure cwnd >= swnd/2

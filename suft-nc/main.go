@@ -24,7 +24,6 @@ func main() {
 	flag.StringVar(&raddr, "r", ":9090", "remote")
 	flag.BoolVar(&p.IsServ, "s", false, "is server")
 	flag.BoolVar(&p.FastRetransmit, "fr", false, "enableFastRetransmit")
-	flag.BoolVar(&p.SuperRetransmit, "sr", false, "superRetransmit")
 	flag.Int64Var(&p.Bandwidth, "b", 2, "bandwidth in mbps")
 	flag.IntVar(&p.Debug, "debug", 0, "debug")
 	flag.BoolVar(&p.EnablePprof, "pprof", false, "pprof")

@@ -76,7 +76,6 @@ type Conn struct {
 	// params
 	bandwidth       int64
 	fastRetransmit  bool
-	superRetransmit bool
 	flatTraffic     bool
 	mss             int
 	// statistics
@@ -106,7 +105,6 @@ func NewConn(e *Endpoint, dest *net.UDPAddr, id connID) *Conn {
 	p := e.params
 	c.bandwidth = p.Bandwidth
 	c.fastRetransmit = p.FastRetransmit
-	c.superRetransmit = p.SuperRetransmit
 	c.flatTraffic = p.FlatTraffic
 	c.mss = _MSS
 	if dest.IP.To4() == nil {
