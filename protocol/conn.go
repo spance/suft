@@ -173,9 +173,9 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 		if shrcond && now-c.lastShrink > c.rto {
 			log.Printf("shrink cwnd from=%d to=%d s/2=%d", c.cwnd, c.cwnd>>1, c.swnd>>1)
 			c.lastShrink = now
-			// ensure cwnd >= swnd/2
-			if c.cwnd > c.swnd>>1 {
-				c.cwnd = c.cwnd >> 1
+			// ensure cwnd >= swnd/4
+			if c.cwnd < c.swnd>>2 {
+				c.cwnd = c.swnd >> 2
 			}
 		}
 	}
@@ -193,11 +193,11 @@ func (c *Conn) retransmit2() (count int32) {
 			if item.miss >= 3 && now-item.sent >= fRtt {
 				item.miss = 0
 				c.internalWrite(item)
-				c.fRCnt++
 				count++
 			}
 		}
 	}
+	c.fRCnt += int(count)
 	c.outDupCnt += int(count)
 	return
 }

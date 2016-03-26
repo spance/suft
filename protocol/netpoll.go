@@ -7,6 +7,8 @@ import (
 
 func net_pollSetDeadline(ctx uintptr, d int64, mode int)
 
+func popcnt(src uint64) int
+
 type fdMutex struct {
 	state uint64
 	rsema uint32
