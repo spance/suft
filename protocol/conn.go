@@ -168,8 +168,8 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 	}
 	c.outDupCnt += int(count)
 	if count > 0 {
-		// shrink cwnd to 1/2 if RTO 1/8 cwnd in FR or if RTO 1/4 cwnd in non-FR
-		shrcond := (c.fastRetransmit && count > c.cwnd>>3) || (!c.fastRetransmit && count > c.cwnd>>2)
+		// shrink cwnd
+		shrcond := (c.fastRetransmit && count > maxI32(c.cwnd>>5, 4)) || (!c.fastRetransmit && count > c.cwnd>>3)
 		if shrcond && now-c.lastShrink > c.rto {
 			log.Printf("shrink cwnd from=%d to=%d s/2=%d", c.cwnd, c.cwnd>>1, c.swnd>>1)
 			c.lastShrink = now
