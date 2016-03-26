@@ -272,7 +272,7 @@ func (c *Conn) internalWrite(item *qNode) {
 	// update current sent time and prev sent time
 	item.sent, item.sent_1 = Now(), item.sent
 	item.scnt++
-	buf := item.marshall(c.connId)
+	buf := item.marshall(c.connID)
 	if debug >= 3 {
 		var pkType = packetTypeNames[item.flag]
 		if item.flag&_F_SACK != 0 {

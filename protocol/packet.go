@@ -74,7 +74,7 @@ type packet struct {
 // TODO use writev and WSASend
 // TODO remove len:uint16
 // TODO remove magic for non-syn
-func (p *packet) marshall(id connId) []byte {
+func (p *packet) marshall(id connID) []byte {
 	buf := p.buffer
 	if buf == nil {
 		buf = make([]byte, _AH_SIZE+len(p.payload))

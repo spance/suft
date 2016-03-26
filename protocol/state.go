@@ -36,7 +36,7 @@ type Conn struct {
 	sock   *net.UDPConn
 	dest   *net.UDPAddr
 	edp    *Endpoint
-	connId connId // 8 bytes
+	connID connID // 8 bytes
 	// events
 	evRecv  chan []byte
 	evRead  chan byte
@@ -88,12 +88,12 @@ type Conn struct {
 	fRCnt     int
 }
 
-func NewConn(e *Endpoint, dest *net.UDPAddr, id connId) *Conn {
+func NewConn(e *Endpoint, dest *net.UDPAddr, id connID) *Conn {
 	c := &Conn{
 		sock:    e.udpconn,
 		dest:    dest,
 		edp:     e,
-		connId:  id,
+		connID:  id,
 		evRecv:  make(chan []byte, 32),
 		evRead:  make(chan byte, 1),
 		evSWnd:  make(chan byte, 2),
@@ -166,7 +166,7 @@ func (c *Conn) initDialing() error {
 		case buf = <-c.evRecv:
 			c.rtt = Now() - t0
 			c.state = _S_SYN1
-			c.connId.setRid(buf)
+			c.connID.setRid(buf)
 			buf = buf[_TH_SIZE:]
 		case <-time.After(time.Second):
 			continue
@@ -388,7 +388,7 @@ func (c *Conn) afterCloseW() {
 }
 
 func (c *Conn) afterShutdown() {
-	c.edp.removeConn(c.connId, c.dest)
+	c.edp.removeConn(c.connID, c.dest)
 	log.Println("shutdown", c.state)
 }
 

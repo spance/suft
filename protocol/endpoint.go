@@ -35,7 +35,7 @@ type Params struct {
 	FlatTraffic     bool
 }
 
-type connId struct {
+type connID struct {
 	lid uint32
 	rid uint32
 }
@@ -53,7 +53,7 @@ type Endpoint struct {
 	params     Params
 }
 
-func (c *connId) setRid(b []byte) {
+func (c *connID) setRid(b []byte) {
 	c.rid = binary.BigEndian.Uint32(b[_MAGIC_SIZE+6:])
 }
 
@@ -102,7 +102,7 @@ func (e *Endpoint) internal_listen() {
 		net_pollSetDeadline(pdCtx, rtmo+runtimeNano(), 'r')
 		n, addr, err := e.udpconn.ReadFromUDP(buf)
 		if err == nil && n >= _AH_SIZE {
-			var id = e.getConnId(buf)
+			var id = e.getConnID(buf)
 			buf = buf[:n]
 
 			switch id.lid {
@@ -166,7 +166,7 @@ func (e *Endpoint) Dial(addr string) (*Conn, error) {
 	}
 	e.mlock.Lock()
 	e.idSeq++
-	id := connId{e.idSeq, 0}
+	id := connID{e.idSeq, 0}
 	conn := NewConn(e, rAddr, id)
 	e.lRegistry[id.lid] = conn
 	e.mlock.Unlock()
@@ -177,10 +177,10 @@ func (e *Endpoint) Dial(addr string) (*Conn, error) {
 	return conn, err
 }
 
-func (e *Endpoint) acceptNewConn(id connId, addr *net.UDPAddr, buf []byte) {
+func (e *Endpoint) acceptNewConn(id connID, addr *net.UDPAddr, buf []byte) {
 	rKey := addr.String()
 	e.mlock.Lock()
-	// map: remoteAddr => remoteConnId
+	// map: remoteAddr => remoteConnID
 	// filter duplicated syn packets
 	if newArr := insertRid(e.rRegistry[rKey], id.rid); newArr != nil {
 		e.rRegistry[rKey] = newArr
@@ -207,7 +207,7 @@ func (e *Endpoint) acceptNewConn(id connId, addr *net.UDPAddr, buf []byte) {
 	}
 }
 
-func (e *Endpoint) removeConn(id connId, addr *net.UDPAddr) {
+func (e *Endpoint) removeConn(id connID, addr *net.UDPAddr) {
 	e.mlock.Lock()
 	delete(e.lRegistry, id.lid)
 	rKey := addr.String()
@@ -273,11 +273,11 @@ func (e *Endpoint) ListenTimeout(tmo int64) *Conn {
 	return nil
 }
 
-func (e *Endpoint) getConnId(buf []byte) connId {
+func (e *Endpoint) getConnID(buf []byte) connID {
 	// TODO determine magic header
 	// magic := binary.BigEndian.Uint64(buf)
 	id := binary.BigEndian.Uint64(buf[_MAGIC_SIZE+2:])
-	return connId{uint32(id >> 32), uint32(id)}
+	return connID{uint32(id >> 32), uint32(id)}
 }
 
 func (e *Endpoint) dispatch(c *Conn, buf []byte) {
@@ -289,7 +289,7 @@ func (e *Endpoint) dispatch(c *Conn, buf []byte) {
 	}
 }
 
-func (e *Endpoint) resetPeer(addr *net.UDPAddr, id connId) {
+func (e *Endpoint) resetPeer(addr *net.UDPAddr, id connID) {
 	pk := &packet{flag: _F_FIN | _F_RESET}
 	buf := nodeOf(pk).marshall(id)
 	e.udpconn.WriteToUDP(buf, addr)
