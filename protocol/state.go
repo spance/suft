@@ -74,10 +74,10 @@ type Conn struct {
 	inMaxCtnSeq uint32
 	lastReadSeq uint32 // last user read seq
 	// params
-	bandwidth       int64
-	fastRetransmit  bool
-	flatTraffic     bool
-	mss             int
+	bandwidth      int64
+	fastRetransmit bool
+	flatTraffic    bool
+	mss            int
 	// statistics
 	urgent    int
 	inPkCnt   int
