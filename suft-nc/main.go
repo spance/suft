@@ -62,11 +62,18 @@ func main() {
 	log.Println(eof1.msg)
 
 	if wto > 0 {
-		log.Printf("the countdown to %c has started", "RW"[(eof1.channel+1)%2])
-		select {
-		case eof2 = <-waiting:
-		case <-time.After(time.Duration(wto * 1e9)):
-			conn.Close()
+	forLoop:
+		for i, v := range [2]int64{1, wto} {
+			select {
+			case eof2 = <-waiting:
+				break forLoop
+			case <-time.After(time.Duration(v * 1e9)):
+				if i == 0 {
+					log.Printf("the countdown to %c has started", "RW"[(eof1.channel+1)%2])
+				} else {
+					conn.Close()
+				}
+			}
 		}
 	} else {
 		eof2 = <-waiting
