@@ -273,6 +273,10 @@ func selfSpinWait(fn func() bool) error {
 	return ErrIOTimeout
 }
 
+func (c *Conn) IsClosed() bool {
+	return atomic.LoadInt32(&c.state) <= _S_FIN1
+}
+
 /*
 active close:
 1 <- send fin-W: closeW()
@@ -311,8 +315,6 @@ func (c *Conn) Close() (err error) {
 		// backup path for wait ack(finW) timeout
 		c.closeR(nil)
 	}
-	// now could exit evRecv
-	c.evRecv <- nil
 	if err0 != nil {
 		return err0
 	} else {
@@ -386,7 +388,9 @@ func (c *Conn) afterCloseW() {
 	c.evSWnd <- _CLOSE
 }
 
+// called by active and passive close()
 func (c *Conn) afterShutdown() {
+	c.evRecv <- nil
 	c.edp.removeConn(c.connID, c.dest)
 	log.Println("shutdown", c.state)
 }

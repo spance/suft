@@ -25,12 +25,12 @@ func main() {
 	flag.StringVar(&p.LocalAddr, "l", "", "local")
 	flag.StringVar(&raddr, "r", "", "remote")
 	flag.BoolVar(&p.IsServ, "s", false, "is server")
-	flag.BoolVar(&p.FastRetransmit, "fr", true, "enableFastRetransmit")
+	flag.BoolVar(&p.FastRetransmit, "fr", true, "FastRetransmit")
+	flag.BoolVar(&p.FlatTraffic, "ft", true, "FlatTraffic")
 	flag.Int64Var(&p.Bandwidth, "b", 2, "bandwidth in mbps")
 	flag.IntVar(&p.Debug, "debug", 0, "debug")
 	flag.BoolVar(&p.EnablePprof, "pprof", false, "pprof")
 	flag.BoolVar(&p.Stacktrace, "stacktrace", false, "stacktrace")
-	flag.BoolVar(&p.FlatTraffic, "ft", true, "FlatTraffic")
 	flag.Int64Var(&timeWaiting, "w", 0, "Timeout waiting for half-closed connection")
 	flag.Parse()
 
@@ -58,29 +58,43 @@ func main() {
 	}
 
 	var eof1, eof2 *eofStatus
+	// there is one direction channel has been released
 	eof1 = <-waiting
-	log.Println(eof1.msg)
+	log.Println(eof1.status)
 
 	if timeWaiting > 0 {
-	forLoop:
+	for1:
 		for i, v := range [2]int64{1, timeWaiting} {
 			select {
 			case eof2 = <-waiting:
-				break forLoop
+				// stdin reader released
+				break for1
 			case <-time.After(time.Duration(v * 1e9)):
-				if i == 0 {
+				if i == 0 { // first second for preparing countdown
 					log.Printf("the countdown to %c has started", "RW"[(eof1.channel+1)%2])
-				} else {
+				} else { // kill
 					conn.Close()
 				}
 			}
 		}
 	} else {
-		eof2 = <-waiting
+	for2:
+		for { // special case for close stdin
+			select {
+			case eof2 = <-waiting:
+				// stdin reader released
+				break for2
+			case <-time.After(1e9):
+				// conn is closed but reading stdin was still blocking
+				if conn.IsClosed() {
+					break for2
+				}
+			}
+		}
 	}
 
 	if eof2 != nil {
-		log.Println(eof2.msg)
+		log.Println(eof2.status)
 	}
 	conn.PrintState()
 }
@@ -99,7 +113,7 @@ func readIn(c *suft.Conn) {
 	}
 	waiting <- &eofStatus{
 		channel: 0,
-		msg:     fmt.Sprint("R done", err1, err2),
+		status:  fmt.Sprint("readIn done", err1, err2),
 	}
 }
 
@@ -118,7 +132,7 @@ func writeOut(c *suft.Conn) {
 	}
 	waiting <- &eofStatus{
 		channel: 1,
-		msg:     fmt.Sprint("W done", err1, err2),
+		status:  fmt.Sprint("writeOut done", err1, err2),
 	}
 }
 
@@ -130,5 +144,5 @@ func checkErr(e error) {
 
 type eofStatus struct {
 	channel int
-	msg     string
+	status  string
 }

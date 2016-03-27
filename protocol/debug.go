@@ -35,10 +35,10 @@ func (c *Conn) PrintState() {
 	log.Printf("inQ=%d inQReady=%d outQ=%d", c.inQ.size(), len(c.inQReady), c.outQ.size())
 	log.Printf("inMaxCtnSeq=%d lastAck=%d lastReadSeq=%d", c.inMaxCtnSeq, c.lastAck, c.lastReadSeq)
 	if c.inPkCnt > 0 {
-		log.Printf("rxpc=%d dups=%d %%d=%f%%", c.inPkCnt, c.inDupCnt, 100*float32(c.inDupCnt)/float32(c.inPkCnt))
+		log.Printf("Rx pcnt=%d dups=%d %%d=%f%%", c.inPkCnt, c.inDupCnt, 100*float32(c.inDupCnt)/float32(c.inPkCnt))
 	}
 	if c.outPkCnt > 0 {
-		log.Printf("txpc=%d dups=%d %%d=%f%%", c.outPkCnt, c.outDupCnt, 100*float32(c.outDupCnt)/float32(c.outPkCnt))
+		log.Printf("Tx pcnt=%d dups=%d %%d=%f%%", c.outPkCnt, c.outDupCnt, 100*float32(c.outDupCnt)/float32(c.outPkCnt))
 	}
 	log.Printf("current-rtt=%d FastRetransmit=%d", c.rtt, c.fRCnt)
 	if enable_stacktrace {
