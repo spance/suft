@@ -27,6 +27,8 @@ e, err := suft.NewEndpoint(p *suft.Params)
 conn := e.Listen() // or e.Accept()
 // for client
 conn, err := e.Dial(rAddr string)
+// your business ...
+conn.Close()
 ```
 
 # Basic Theories
@@ -79,7 +81,6 @@ Build with `go get -u -v github.com/spance/suft/suft-nc`
 -b:  max bandwidth of sending in mbps (be careful, see Notes#2)
 -s:  for server
 -fr: enable fast retransmission (useful for lossy link)
--sr: don't shrink window when a lot of packets were lost
 -ft: flat traffic (slow down bursty traffic, useful when sender has more bandwidth than receiver)
 ```
 
@@ -111,8 +112,9 @@ Notes:
 # How to test?
 
 ```
-// remote, send 100MB stream in 50mbps
+// remote, send 100MB stream in 50mbps (your bandwidth bottleneck)
 remote# dd if=/dev/zero bs=1M count=100 status=none | ./suft-nc -s -l :9090 -b 50 -fr -ft
+// status=none or status=noxfer
 
 // local console#1, monitor traffic(for simplicity, we can use bmon)
 local# bmon -p eth0
