@@ -80,7 +80,7 @@ func (p *packet) marshall(id connID) []byte {
 		buf = make([]byte, _AH_SIZE+len(p.payload))
 		copy(buf[_TH_SIZE+10:], p.payload)
 	}
-	binary.BigEndian.PutUint16(buf[_MAGIC_SIZE:], uint16(len(buf)-_TH_SIZE))
+	binary.BigEndian.PutUint16(buf[_MAGIC_SIZE:], uint16(len(buf)))
 	binary.BigEndian.PutUint32(buf[_MAGIC_SIZE+2:], id.rid)
 	binary.BigEndian.PutUint32(buf[_MAGIC_SIZE+6:], id.lid)
 	binary.BigEndian.PutUint32(buf[_TH_SIZE:], p.seq)

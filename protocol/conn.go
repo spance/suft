@@ -168,14 +168,13 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 	}
 	c.outDupCnt += int(count)
 	if count > 0 {
-		// shrink cwnd
 		shrcond := (c.fastRetransmit && count > maxI32(c.cwnd>>5, 4)) || (!c.fastRetransmit && count > c.cwnd>>3)
 		if shrcond && now-c.lastShrink > c.rto {
-			log.Printf("shrink cwnd from=%d to=%d s/2=%d", c.cwnd, c.cwnd>>1, c.swnd>>1)
+			log.Printf("shrink cwnd from=%d to=%d s/4=%d", c.cwnd, c.cwnd>>1, c.swnd>>2)
 			c.lastShrink = now
-			// ensure cwnd >= swnd/4
-			if c.cwnd < c.swnd>>2 {
-				c.cwnd = c.swnd >> 2
+			// shrink cwnd and ensure cwnd >= swnd/4
+			if c.cwnd > c.swnd>>1 {
+				c.cwnd >>= 1
 			}
 		}
 	}
@@ -186,8 +185,13 @@ func (c *Conn) retransmit() (rest int64, count int32) {
 }
 
 func (c *Conn) retransmit2() (count int32) {
-	var fRtt = c.rtt + maxI64(c.rtt>>4, 1)
 	var limit, now = minI32(c.outPending>>4, 8), Now()
+	var fRtt = c.rtt
+	if now-c.lastShrink > c.rto {
+		fRtt += maxI64(c.rtt>>4, 1)
+	} else {
+		fRtt += maxI64(c.rtt>>1, 2)
+	}
 	for item := c.outQ.head; item != nil && count < limit; item = item.next {
 		if item.scnt != _SENT_OK { // ACKed has scnt==-1
 			if item.miss >= 3 && now-item.sent >= fRtt {
@@ -451,6 +455,7 @@ func (c *Conn) processSAck(pk *packet) {
 	c.outlock.Lock()
 	bmap, tbl, delayed, scnt := unmarshallSAck(pk.payload)
 	if bmap == nil { // bad packet
+		c.outlock.Unlock()
 		return
 	}
 	if pk.flag&_F_TIME != 0 {

@@ -11,3 +11,7 @@ TEXT ·stopTimer(SB),NOSPLIT,$0
 
 TEXT ·runtimeNano(SB),NOSPLIT,$0
 	JMP time·runtimeNano(SB)
+
+TEXT ·net_pollSetDeadline(SB),NOSPLIT,$0
+	JMP	net·runtime_pollSetDeadline(SB)
+

@@ -94,7 +94,8 @@ func NewEndpoint(p *Params) (*Endpoint, error) {
 }
 
 func (e *Endpoint) internal_listen() {
-	const rtmo = 60 * 1e9
+	const rtmo = 30 * 1e9
+	var id connID
 	var pdCtx = getPollCtx(e.udpconn)
 	for {
 		//var buf = make([]byte, 1600)
@@ -102,8 +103,8 @@ func (e *Endpoint) internal_listen() {
 		net_pollSetDeadline(pdCtx, rtmo+runtimeNano(), 'r')
 		n, addr, err := e.udpconn.ReadFromUDP(buf)
 		if err == nil && n >= _AH_SIZE {
-			var id = e.getConnID(buf)
 			buf = buf[:n]
+			e.getConnID(&id, buf)
 
 			switch id.lid {
 			case 0: // new connection
@@ -170,11 +171,11 @@ func (e *Endpoint) Dial(addr string) (*Conn, error) {
 	conn := NewConn(e, rAddr, id)
 	e.lRegistry[id.lid] = conn
 	e.mlock.Unlock()
-	if atomic.LoadInt32(&e.state) == _S_FIN {
-		return nil, io.EOF
+	if atomic.LoadInt32(&e.state) != _S_FIN {
+		err = conn.initConnection(nil)
+		return conn, err
 	}
-	err = conn.initConnection(nil)
-	return conn, err
+	return nil, io.EOF
 }
 
 func (e *Endpoint) acceptNewConn(id connID, addr *net.UDPAddr, buf []byte) {
@@ -273,11 +274,16 @@ func (e *Endpoint) ListenTimeout(tmo int64) *Conn {
 	return nil
 }
 
-func (e *Endpoint) getConnID(buf []byte) connID {
+func (e *Endpoint) getConnID(idPtr *connID, buf []byte) {
 	// TODO determine magic header
-	// magic := binary.BigEndian.Uint64(buf)
-	id := binary.BigEndian.Uint64(buf[_MAGIC_SIZE+2:])
-	return connID{uint32(id >> 32), uint32(id)}
+	magicAndLen := binary.BigEndian.Uint64(buf)
+	if int(magicAndLen&0xFFff) == len(buf) {
+		id := binary.BigEndian.Uint64(buf[_MAGIC_SIZE+2:])
+		idPtr.lid = uint32(id >> 32)
+		idPtr.rid = uint32(id)
+	} else {
+		idPtr.lid = _INVALID_SEQ
+	}
 }
 
 func (e *Endpoint) dispatch(c *Conn, buf []byte) {
