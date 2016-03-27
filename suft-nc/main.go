@@ -16,25 +16,25 @@ func init() {
 	log.SetFlags(log.Flags() | log.Lmicroseconds)
 }
 
-var wto int64
+var timeWaiting int64
 var waiting = make(chan *eofStatus, 2)
 
 func main() {
 	var raddr string
 	var p suft.Params
 	flag.StringVar(&p.LocalAddr, "l", "", "local")
-	flag.StringVar(&raddr, "r", ":9090", "remote")
+	flag.StringVar(&raddr, "r", "", "remote")
 	flag.BoolVar(&p.IsServ, "s", false, "is server")
-	flag.BoolVar(&p.FastRetransmit, "fr", false, "enableFastRetransmit")
+	flag.BoolVar(&p.FastRetransmit, "fr", true, "enableFastRetransmit")
 	flag.Int64Var(&p.Bandwidth, "b", 2, "bandwidth in mbps")
 	flag.IntVar(&p.Debug, "debug", 0, "debug")
 	flag.BoolVar(&p.EnablePprof, "pprof", false, "pprof")
 	flag.BoolVar(&p.Stacktrace, "stacktrace", false, "stacktrace")
-	flag.BoolVar(&p.FlatTraffic, "ft", false, "FlatTraffic")
-	flag.Int64Var(&wto, "wto", 0, "timeout of waiting for both eof")
+	flag.BoolVar(&p.FlatTraffic, "ft", true, "FlatTraffic")
+	flag.Int64Var(&timeWaiting, "w", 0, "Timeout waiting for half-closed connection")
 	flag.Parse()
 
-	if !p.IsServ && raddr == ":9090" {
+	if !p.IsServ && raddr == "" {
 		log.Fatalln("missing -r")
 	}
 
@@ -61,9 +61,9 @@ func main() {
 	eof1 = <-waiting
 	log.Println(eof1.msg)
 
-	if wto > 0 {
+	if timeWaiting > 0 {
 	forLoop:
-		for i, v := range [2]int64{1, wto} {
+		for i, v := range [2]int64{1, timeWaiting} {
 			select {
 			case eof2 = <-waiting:
 				break forLoop
@@ -94,7 +94,7 @@ func readIn(c *suft.Conn) {
 	n, err1 = io.Copy(c, os.Stdin)
 	wa.Stop(int(n))
 
-	if wto <= 0 {
+	if timeWaiting <= 0 {
 		err2 = c.Close()
 	}
 	waiting <- &eofStatus{
@@ -113,7 +113,7 @@ func writeOut(c *suft.Conn) {
 	os.Stdout.Sync()
 	wa.Stop(int(n))
 
-	if wto <= 0 {
+	if timeWaiting <= 0 {
 		err2 = c.Close()
 	}
 	waiting <- &eofStatus{
