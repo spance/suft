@@ -60,8 +60,6 @@ const (
 	_SENT_OK = 0xff
 )
 
-// TODO move connid to packet
-// TODO remove ack field
 type packet struct {
 	seq     uint32
 	ack     uint32
@@ -71,9 +69,6 @@ type packet struct {
 	buffer  []byte
 }
 
-// TODO use writev and WSASend
-// TODO remove len:uint16
-// TODO remove magic for non-syn
 func (p *packet) marshall(id connID) []byte {
 	buf := p.buffer
 	if buf == nil {

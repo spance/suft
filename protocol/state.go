@@ -65,6 +65,7 @@ type Conn struct {
 	rtmo        int64
 	wtmo        int64
 	tSlot       int64
+	tSlotT0     int64
 	lastSErr    int64
 	// queue
 	outQ        *linkedMap

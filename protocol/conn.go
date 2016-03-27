@@ -208,7 +208,9 @@ func (c *Conn) retransmit2() (count int32) {
 
 func (c *Conn) inputAndSend(pk *packet) error {
 	item := &qNode{packet: pk}
-	t0 := NowNS()
+	if c.mySeq&3 == 1 {
+		c.tSlotT0 = NowNS()
+	}
 	c.outlock.Lock()
 	// inflight packets exceeds cwnd
 	// inflight includes: 1, unacked; 2, missed
@@ -241,16 +243,18 @@ func (c *Conn) inputAndSend(pk *packet) error {
 	c.outlock.Unlock()
 	// active resending timer, must blocking
 	c.evSWnd <- _VSWND_ACTIVE
-	// calculate time error bewteen tslot with actual usage.
-	// consider last sleep time error
-	terr := c.tSlot - c.lastSErr - (NowNS() - t0)
-	// rest terr/2 if current time usage less than tslot of 100us.
-	if terr > 1e5 && c.flatTraffic {
-		t0 = NowNS()
-		time.Sleep(time.Duration(terr >> 2))
-		c.lastSErr = maxI64(NowNS()-t0-terr, 0)
-	} else {
-		c.lastSErr >>= 1
+	if c.mySeq&3 == 0 && c.flatTraffic {
+		// calculate time error bewteen tslot with actual usage.
+		// consider last sleep time error
+		t1 := NowNS()
+		terr := c.tSlot<<2 - c.lastSErr - (t1 - c.tSlotT0)
+		// rest terr/2 if current time usage less than tslot of 100us.
+		if terr > 1e5 { // 100us
+			time.Sleep(time.Duration(terr >> 1))
+			c.lastSErr = maxI64(NowNS()-t1-terr, 0)
+		} else {
+			c.lastSErr >>= 1
+		}
 	}
 	return nil
 }
