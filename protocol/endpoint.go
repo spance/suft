@@ -227,7 +227,8 @@ func (e *Endpoint) Close() error {
 	state := atomic.LoadInt32(&e.state)
 	if state > 0 && atomic.CompareAndSwapInt32(&e.state, state, _S_FIN) {
 		err := e.udpconn.Close()
-		e.lRegistry = make(map[uint32]*Conn)
+		e.lRegistry = nil
+		e.rRegistry = nil
 		select { // release listeners
 		case e.listenChan <- nil:
 		default:

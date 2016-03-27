@@ -37,6 +37,8 @@ func main() {
 
 	e, err := suft.NewEndpoint(&p)
 	checkErr(err)
+	defer e.Close()
+
 	log.Println("start", e.Addr())
 	var conn *suft.Conn
 	if !p.IsServ { // client

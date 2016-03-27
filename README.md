@@ -29,6 +29,7 @@ conn := e.Listen() // or e.Accept()
 conn, err := e.Dial(rAddr string)
 // your business ...
 conn.Close()
+e.Close()
 ```
 
 # Basic Theories
