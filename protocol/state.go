@@ -256,15 +256,15 @@ func (c *Conn) acceptConnection(buf []byte) error {
 	return nil
 }
 
-// 10,10,10, 100,100,100, 100,100,100, 1s,1s,1s
+// 20,20,20,20, 100,100,100,100, 1s,1s,1s,1s
 func selfSpinWait(fn func() bool) error {
 	const _MAX_SPIN = 12
 	for i := 0; i < _MAX_SPIN; i++ {
 		if fn() {
 			return nil
 		} else if i <= 3 {
-			time.Sleep(_10ms)
-		} else if i <= 9 {
+			time.Sleep(_10ms * 2)
+		} else if i <= 7 {
 			time.Sleep(_100ms)
 		} else {
 			time.Sleep(time.Second)
@@ -347,16 +347,18 @@ func (c *Conn) beforeCloseW() (err error) {
 }
 
 func (c *Conn) closeW() (err error) {
+	// close resource of sending
 	defer c.afterCloseW()
+	// send fin
 	err = c.beforeCloseW()
-	// waiting for outQ means:
-	// 1. all outQ has been acked, for passive
-	// 2. fin has been acked, for active
 	var closed bool
 	var max = 20
 	if c.rtt > 200 {
 		max = int(c.rtt) / 10
 	}
+	// waiting for outQ means:
+	// 1. all outQ has been acked, for passive
+	// 2. fin has been acked, for active
 	for i := 0; i < max && (atomic.LoadInt32(&c.outPending) > 0 || !closed); i++ {
 		select {
 		case v := <-c.evClose:
@@ -377,8 +379,7 @@ func (c *Conn) closeW() (err error) {
 }
 
 func (c *Conn) afterCloseW() {
-	// don't close evRecv to avoid endpoint dispatch exception
-	//close(c.evRecv)
+	// can't close(c.evRecv), avoid endpoint dispatch exception
 	// stop pending inputAndSend
 	select {
 	case c.evSend <- _CLOSE:
@@ -390,22 +391,28 @@ func (c *Conn) afterCloseW() {
 
 // called by active and passive close()
 func (c *Conn) afterShutdown() {
+	// stop internalRecvLoop
 	c.evRecv <- nil
+	// remove registry
 	c.edp.removeConn(c.connID, c.dest)
 	log.Println("shutdown", c.state)
 }
 
+// trigger by reset
 func (c *Conn) forceShutdownWithLock() {
 	c.outlock.Lock()
 	defer c.outlock.Unlock()
 	c.forceShutdown()
 }
 
+// called by:
+// 	1/ send exception
+//	2/ recv reset
 // drop outQ and force shutdown
 func (c *Conn) forceShutdown() {
 	if atomic.CompareAndSwapInt32(&c.state, _S_EST1, _S_FIN) {
+		defer c.afterShutdown()
 		// stop sender
-		//--------------outlock scope
 		for i := 0; i < cap(c.evSend); i++ {
 			select {
 			case <-c.evSend:
@@ -417,17 +424,17 @@ func (c *Conn) forceShutdown() {
 		default:
 		}
 		c.outQ.reset()
-		//--------------
 		// stop reader
 		close(c.evRead)
+		c.inQ.reset()
 		// stop internalLoops
 		c.evSWnd <- _CLOSE
-		c.evRecv <- nil
 		c.evAck <- _CLOSE
-		log.Println("force shutdown")
+		//log.Println("force shutdown")
 	}
 }
 
+// for sending fin failed
 func (c *Conn) fakeShutdown() {
 	select {
 	case c.evClose <- _S_FIN0:
@@ -438,7 +445,8 @@ func (c *Conn) fakeShutdown() {
 func (c *Conn) closeR(pk *packet) {
 	var passive = true
 	for {
-		switch state := atomic.LoadInt32(&c.state); state {
+		state := atomic.LoadInt32(&c.state)
+		switch state {
 		case _S_FIN:
 			return
 		case _S_FIN1: // multiple FIN, maybe lost
@@ -446,13 +454,11 @@ func (c *Conn) closeR(pk *packet) {
 			return
 		case _S_FIN0: // active close preformed
 			passive = false
-			fallthrough
-		default:
-			if !atomic.CompareAndSwapInt32(&c.state, state, _S_FIN1) {
-				continue
-			}
-			c.passiveCloseReply(pk, true)
 		}
+		if !atomic.CompareAndSwapInt32(&c.state, state, _S_FIN1) {
+			continue
+		}
+		c.passiveCloseReply(pk, true)
 		break
 	}
 	// here, R is closed.
@@ -463,10 +469,13 @@ func (c *Conn) closeR(pk *packet) {
 		c.closeW()
 	}
 	// here, R,W both were closed.
-	c.state = _S_FIN
-	// no need for recv then stop internalAckLoop
+	// ^^^^^^^^^^^^^^^^^^^^^
+	atomic.StoreInt32(&c.state, _S_FIN)
+	// stop internalAckLoop
 	c.evAck <- _CLOSE
+
 	if passive {
+		// close evRecv within here
 		c.afterShutdown()
 	} else {
 		// notify active close thread
