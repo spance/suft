@@ -24,15 +24,15 @@ var (
 )
 
 type Params struct {
-	LocalAddr       string
-	Bandwidth       int64
-	Debug           int
-	IsServ          bool
-	FastRetransmit  bool
-	SuperRetransmit bool
-	EnablePprof     bool
-	Stacktrace      bool
-	FlatTraffic     bool
+	LocalAddr      string
+	Bandwidth      int64
+	Mtu            int
+	IsServ         bool
+	FastRetransmit bool
+	FlatTraffic    bool
+	EnablePprof    bool
+	Stacktrace     bool
+	Debug          int
 }
 
 type connID struct {
