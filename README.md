@@ -53,7 +53,7 @@ Speed = (1000 / latency) * mss * win
 GPL version 3 or any later version
 
     SUFT Protocol
-    Copyright (C) <2016>  <spance, l2dy>
+    Copyright (C) 2016  spance, l2dy
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
