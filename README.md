@@ -72,7 +72,7 @@ GPL version 3 or any later version
 
 "suft-nc" package include a tool for testing, similar to netcat (nc).
 
-Build with `go get -u -v github.com/spance/suft/suft-nc`
+Build with `go get -u -v github.com/spance/suft/examples/suft-nc`
 
 ```
 ./suft-nc [-l addr:port] [-r addr:port] [-s] [-b 10] [-fr] < [send_file] > [recv_file]
