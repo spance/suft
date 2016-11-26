@@ -32,14 +32,13 @@ func Test_ordered_insert(t *testing.T) {
 		}
 		conn.insertData(pk)
 		assert(conn.inQ.size() == i, t, "len inQ=%d", conn.inQ.size())
-		assert(conn.inMaxCtnSeq == pk.seq, t, "lastCtnIn")
+		assert(conn.inQ.maxCtnSeq == pk.seq, t, "lastCtnIn")
 		assert(!conn.inQDirty, t, "dirty")
 	}
 }
 
 func Test_unordered_insert(t *testing.T) {
 	conn.inQ.reset()
-	conn.inMaxCtnSeq = 0
 
 	data := []byte{1}
 	var pk *packet
@@ -75,13 +74,13 @@ func Test_unordered_insert(t *testing.T) {
 		}
 		last = &seqs[i]
 	}
-	if *last != int(conn.inMaxCtnSeq) {
+	if *last != int(conn.inQ.maxCtnSeq) {
 		for i, j := range seqs {
 			if i < 10 {
 				t.Logf("seq %d", j)
 			}
 		}
 	}
-	assert(*last == int(conn.inMaxCtnSeq), t, "lastCtnSeq=%d but expected=%d", conn.inMaxCtnSeq, *last)
-	t.Logf("lastCtnSeq=%d dirty=%v", conn.inMaxCtnSeq, conn.inQDirty)
+	assert(*last == int(conn.inQ.maxCtnSeq), t, "lastCtnSeq=%d but expected=%d", conn.inQ.maxCtnSeq, *last)
+	t.Logf("lastCtnSeq=%d dirty=%v", conn.inQ.maxCtnSeq, conn.inQDirty)
 }

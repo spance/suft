@@ -1,8 +1,6 @@
 *.exe
 *.bat
 *.sh
-big.*
-rap
 *.pprof
 *.pdf
 *.log

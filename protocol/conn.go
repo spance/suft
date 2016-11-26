@@ -130,11 +130,12 @@ func (c *Conn) internalAckLoop() {
 			v = _VACK_QUICK
 		case v = <-c.evAck:
 			ackTimer.TryActive(c.ato)
-			if lastAckState != v {
+			state := lastAckState
+			lastAckState = v
+			if state != v {
 				if v == _CLOSE {
 					return
 				}
-				lastAckState = v
 				v = _VACK_MUST
 			}
 		}
@@ -304,23 +305,26 @@ func (c *Conn) makeLastAck() (pk *packet) {
 		return nil
 	}
 	pk = &packet{
-		ack:  maxU32(c.lastAck, c.inMaxCtnSeq),
+		ack:  maxU32(c.lastAck, c.inQ.maxCtnSeq),
 		flag: _F_ACK,
 	}
 	c.logAck(pk.ack)
 	return
 }
 
-func (c *Conn) makeAck(demand byte) (pk *packet) {
-	if demand < _VACK_MUST && Now()-c.lastAckTime < c.ato {
-		return
+func (c *Conn) makeAck(level byte) (pk *packet) {
+	now := Now()
+	if level < _VACK_MUST && now-c.lastAckTime < c.ato {
+		if level < _VACK_QUICK || now-c.lastAckTime < minI64(c.ato>>2, 1) {
+			return
+		}
 	}
 	//	    ready Q <-|
 	//	              |-> outQ start (or more right)
 	//	              |-> bitmap start
 	//	[predecessor]  [predecessor+1]  [predecessor+2] .....
 	var fakeSAck bool
-	var predecessor = c.inMaxCtnSeq
+	var predecessor = c.inQ.maxCtnSeq
 	bmap, tbl := c.inQ.makeHolesBitmap(predecessor)
 	if len(bmap) <= 0 { // fake sack
 		bmap = make([]uint64, 1)
@@ -340,7 +344,7 @@ func (c *Conn) makeAck(demand byte) (pk *packet) {
 	buf[0] = byte(tbl)
 	// mark delayed time according to the time reference point
 	if trp := c.inQ.lastIns; trp != nil {
-		delayed := Now() - trp.sent
+		delayed := now - trp.sent
 		if delayed < c.rtt {
 			pk.seq = trp.seq
 			pk.flag |= _F_TIME
@@ -551,9 +555,9 @@ func (c *Conn) insertData(pk *packet) {
 	c.inlock.Lock()
 	defer c.inlock.Unlock()
 	exists := c.inQ.contains(pk.seq)
-	// duplicated with queued or already ACKed
+	// duplicated with already queued or history
 	// means: last ACK were lost
-	if exists || pk.seq <= c.inMaxCtnSeq {
+	if exists || pk.seq <= c.inQ.maxCtnSeq {
 		// then send ACK for dups
 		select {
 		case c.evAck <- _VACK_MUST:
@@ -569,29 +573,27 @@ func (c *Conn) insertData(pk *packet) {
 	item := &qNode{packet: pk, sent: Now()}
 	dis := c.inQ.searchInsert(item, c.lastReadSeq)
 	if debug >= 3 {
-		log.Printf("\t\t\trecv DATA seq=%d dis=%d lastReadSeq=%d", item.seq, dis, c.lastReadSeq)
+		log.Printf("\t\t\trecv DATA seq=%d dis=%d maxCtn=%d lastReadSeq=%d", item.seq, dis, c.inQ.maxCtnSeq, c.lastReadSeq)
 	}
+
 	var ackState byte = _VACK_MUST
 	var available bool
 	switch dis {
-	case 0:
-		// duplicated with history
-		c.inDupCnt++
+	case 0: // impossible
 		return
 	case 1:
 		if c.inQDirty {
-			max, continued := c.inQ.searchMaxContinued(c.lastReadSeq + 1)
-			if continued {
-				c.inMaxCtnSeq, available = max.seq, true
-				// whole Q is ordered
-				if max == c.inQ.tail {
-					c.inQDirty = false
-				}
-			} // else: those holes still exists.
+			available = c.inQ.updateContinuous(item)
+			if c.inQ.isWholeContinuous() { // whole Q is ordered
+				c.inQDirty = false
+			} else { //those holes still exists.
+				ackState = _VACK_QUICK
+			}
 		} else {
 			// here is an ideal situation
-			c.inMaxCtnSeq, available = pk.seq, true
-			ackState = _VACK_QUICK
+			c.inQ.maxCtnSeq = pk.seq
+			available = true
+			ackState = _VACK_SCHED
 		}
 
 	default: // there is an unordered packet, hole occurred here.
@@ -599,14 +601,16 @@ func (c *Conn) insertData(pk *packet) {
 			c.inQDirty = true
 		}
 	}
+
 	// write valid received count
 	c.inPkCnt++
 	c.inQ.lastIns = item
+	// try notify ack
 	select {
 	case c.evAck <- ackState:
 	default:
 	}
-	if available { // notify reader
+	if available { // try notify reader
 		select {
 		case c.evRead <- 1:
 		default:
@@ -619,9 +623,9 @@ func (c *Conn) readInQ() bool {
 	defer c.inlock.Unlock()
 	// read already <-|-> expected Q
 	//  [lastReadSeq] | [lastReadSeq+1] [lastReadSeq+2] ......
-	if c.inQ.isEqualsHead(c.lastReadSeq+1) && c.lastReadSeq < c.inMaxCtnSeq {
-		c.lastReadSeq = c.inMaxCtnSeq
-		availabled := c.inQ.get(c.inMaxCtnSeq)
+	if c.inQ.isEqualsHead(c.lastReadSeq+1) && c.lastReadSeq < c.inQ.maxCtnSeq {
+		c.lastReadSeq = c.inQ.maxCtnSeq
+		availabled := c.inQ.get(c.inQ.maxCtnSeq)
 		availabled, _ = c.inQ.deleteBefore(availabled)
 		for i := availabled; i != nil; i = i.next {
 			c.inQReady = append(c.inQReady, i.payload...)

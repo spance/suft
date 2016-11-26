@@ -10,11 +10,12 @@ type qNode struct {
 }
 
 type linkedMap struct {
-	head    *qNode
-	tail    *qNode
-	qmap    map[uint32]*qNode
-	lastIns *qNode
-	mode    int
+	head      *qNode
+	tail      *qNode
+	qmap      map[uint32]*qNode
+	lastIns   *qNode
+	maxCtnSeq uint32
+	mode      int
 }
 
 const (
@@ -47,6 +48,7 @@ func (l *linkedMap) reset() {
 	l.head = nil
 	l.tail = nil
 	l.lastIns = nil
+	l.maxCtnSeq = 0
 	l.qmap = make(map[uint32]*qNode)
 }
 
@@ -174,6 +176,27 @@ func (l *linkedMap) searchInsert(one *qNode, baseHead uint32) (dis int64) {
 	return
 }
 
+func (l *linkedMap) updateContinuous(i *qNode) bool {
+	var lastCtnSeq = l.maxCtnSeq
+	for ; i != nil; i = i.next {
+		if i.seq-lastCtnSeq == 1 {
+			lastCtnSeq = i.seq
+		} else {
+			break
+		}
+	}
+	if lastCtnSeq != l.maxCtnSeq {
+		l.maxCtnSeq = lastCtnSeq
+		return true
+	}
+	return false
+}
+
+func (l *linkedMap) isWholeContinuous() bool {
+	return l.tail != nil && l.maxCtnSeq == l.tail.seq
+}
+
+/*
 func (l *linkedMap) searchMaxContinued(baseHead uint32) (*qNode, bool) {
 	var last *qNode
 	for i := l.head; i != nil; i = i.next {
@@ -194,6 +217,7 @@ func (l *linkedMap) searchMaxContinued(baseHead uint32) (*qNode, bool) {
 		return nil, false
 	}
 }
+*/
 
 func (q *qNode) forward(n int) *qNode {
 	for ; n > 0 && q != nil; n-- {
@@ -263,11 +287,7 @@ func (l *linkedMap) deleteByBitmap(bmap []uint64, from uint32, tailBitsLen uint3
 	// keep the queue smallest
 	var maxContinued *qNode
 	lastContinued = true
-	defer func() {
-		if maxContinued != nil {
-			l.deleteBefore(maxContinued)
-		}
-	}()
+
 	for i := start; i != nil; j++ {
 		if j >= bitsLen {
 			if len(bmap) > 0 {
@@ -280,7 +300,7 @@ func (l *linkedMap) deleteByBitmap(bmap []uint64, from uint32, tailBitsLen uint3
 				}
 			} else {
 				// no more pages
-				return
+				goto finished
 			}
 		}
 		if bits&1 == 1 {
@@ -303,6 +323,11 @@ func (l *linkedMap) deleteByBitmap(bmap []uint64, from uint32, tailBitsLen uint3
 		}
 		bits >>= 1
 		i = i.next
+	}
+
+finished:
+	if maxContinued != nil {
+		l.deleteBefore(maxContinued)
 	}
 	return
 }

@@ -45,34 +45,34 @@ type Conn struct {
 	evAck   chan byte
 	evClose chan byte
 	// protocol state
-	inlock      sync.Mutex
-	outlock     sync.Mutex
-	state       int32
-	mySeq       uint32
-	swnd        int32
-	cwnd        int32
-	missed      int32
-	outPending  int32
-	lastAck     uint32
-	lastAckTime int64
-	lastShrink  int64
-	lastRstMis  int64
-	ato         int64
-	rto         int64
-	rtt         int64
-	srtt        int64
-	mdev        int64
-	rtmo        int64
-	wtmo        int64
-	tSlot       int64
-	tSlotT0     int64
-	lastSErr    int64
+	inlock       sync.Mutex
+	outlock      sync.Mutex
+	state        int32
+	mySeq        uint32
+	swnd         int32
+	cwnd         int32
+	missed       int32
+	outPending   int32
+	lastAck      uint32
+	lastAckTime  int64
+	lastAckTime2 int64
+	lastShrink   int64
+	lastRstMis   int64
+	ato          int64
+	rto          int64
+	rtt          int64
+	srtt         int64
+	mdev         int64
+	rtmo         int64
+	wtmo         int64
+	tSlot        int64
+	tSlotT0      int64
+	lastSErr     int64
 	// queue
 	outQ        *linkedMap
 	inQ         *linkedMap
 	inQReady    []byte
 	inQDirty    bool
-	inMaxCtnSeq uint32
 	lastReadSeq uint32 // last user read seq
 	// params
 	bandwidth      int64
@@ -94,7 +94,7 @@ func NewConn(e *Endpoint, dest *net.UDPAddr, id connID) *Conn {
 		dest:    dest,
 		edp:     e,
 		connID:  id,
-		evRecv:  make(chan []byte, 32),
+		evRecv:  make(chan []byte, 128),
 		evRead:  make(chan byte, 1),
 		evSWnd:  make(chan byte, 2),
 		evSend:  make(chan byte, 4),
@@ -126,7 +126,7 @@ func (c *Conn) initConnection(buf []byte) (err error) {
 	}
 	if c.state == _S_EST1 {
 		c.lastReadSeq = c.lastAck
-		c.inMaxCtnSeq = c.lastAck
+		c.inQ.maxCtnSeq = c.lastAck
 		c.rtt = maxI64(c.rtt, _MIN_RTT)
 		c.mdev = c.rtt << 1
 		c.srtt = c.rtt << 3
@@ -502,7 +502,7 @@ func (c *Conn) passiveCloseReply(pk *packet, first bool) {
 // check inQ ends orderly, and copy queue data to user space
 func (c *Conn) checkInQ(pk *packet) {
 	if nil != selfSpinWait(func() bool {
-		return c.inMaxCtnSeq+1 == pk.seq
+		return c.inQ.maxCtnSeq+1 == pk.seq
 	}) { // timeout for waiting inQ to finish
 		return
 	}

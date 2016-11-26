@@ -33,7 +33,7 @@ func set_debug_params(p *Params) {
 
 func (c *Conn) PrintState() {
 	log.Printf("inQ=%d inQReady=%d outQ=%d", c.inQ.size(), len(c.inQReady), c.outQ.size())
-	log.Printf("inMaxCtnSeq=%d lastAck=%d lastReadSeq=%d", c.inMaxCtnSeq, c.lastAck, c.lastReadSeq)
+	log.Printf("inMaxCtnSeq=%d lastAck=%d lastReadSeq=%d", c.inQ.maxCtnSeq, c.lastAck, c.lastReadSeq)
 	if c.inPkCnt > 0 {
 		log.Printf("Rx pcnt=%d dups=%d %%d=%f%%", c.inPkCnt, c.inDupCnt, 100*float32(c.inDupCnt)/float32(c.inPkCnt))
 	}
